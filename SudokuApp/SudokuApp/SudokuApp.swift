@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 应用入口。引擎是静态库，已链接到 App 目标；界面从 P1 再调用。
+/// 应用入口。棋盘目前走 App 内的引擎替身，真引擎接口合并后再换。
 @main
 struct SudokuApp: App {
     var body: some Scene {

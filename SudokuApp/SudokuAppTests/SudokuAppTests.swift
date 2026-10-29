@@ -2,11 +2,13 @@
 import XCTest
 
 final class HomeScreenTests: XCTestCase {
-    func testTitleMatchesPlaceholderCopy() {
+    func testTitleIsSudoku() {
         XCTAssertEqual(HomeCopy.title, "数独")
     }
 
-    func testMessageIsNotEmpty() {
-        XCTAssertFalse(HomeCopy.message.isEmpty)
+    func testMessageDescribesBoxLines() {
+        XCTAssertTrue(HomeCopy.message.contains("4×4"))
+        XCTAssertTrue(HomeCopy.message.contains("5×5"))
+        XCTAssertTrue(HomeCopy.message.contains("9×9"))
     }
 }
