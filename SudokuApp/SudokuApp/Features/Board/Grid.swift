@@ -61,7 +61,7 @@ struct Grid: Codable, Equatable, Hashable, Sendable {
         case cells
     }
 
-    private func write(_ newValue: Int, row: Int, column: Int) {
+    private mutating func write(_ newValue: Int, row: Int, column: Int) {
         precondition(
             newValue >= Self.emptyCell && newValue <= size,
             "cell value must be 0...size"

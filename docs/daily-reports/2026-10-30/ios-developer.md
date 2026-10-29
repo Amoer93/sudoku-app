@@ -7,6 +7,7 @@
 - 首页尺寸入口和「自动解题」。求解放在后台线程，结果回到主线程再改棋盘。
 - 单元测试覆盖宫线、示例题面、撤销栈，以及视图模型只消费引擎返回值。
 - 按 [PR #3 审查](https://github.com/Amoer93/sudoku-app/pull/3#pullrequestreview-5699668084) 改了三处：协议签名对齐 PR #2（`Set<CellIndex>`、`solutionCount` 的 `limit`、会抛错的 `Rules` 初始化、`Grid.cells` 只读）；自动解题只对求解前的盘面计数，输入、撤销、重做、清空会在后台重算；SwiftFormat 的区间空格、import 顺序和缩进。
+- `Grid` 的写入方法补了 `mutating`，否则结构体下标在 CI 里编不过。
 
 ## 进行中
 
