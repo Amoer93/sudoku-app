@@ -34,8 +34,7 @@ final class BoardModelTests: XCTestCase {
 
     func testRulesInitializerRejectsUnsupportedShapes() throws {
         XCTAssertThrowsError(try Rules(size: 6, boxRows: 2, boxCols: 3)) { error in
-            let expected = Rules.ValidationError.invalidBoxDimensions(size: 6, boxRows: 2, boxCols: 3)
-            XCTAssertEqual(error as? Rules.ValidationError, expected)
+            XCTAssertEqual(error as? Rules.ValidationError, .unsupportedSize(6))
         }
         XCTAssertThrowsError(try Rules(size: 5, boxRows: 1, boxCols: nil))
         XCTAssertThrowsError(try Rules(size: 0, boxRows: nil, boxCols: nil))
