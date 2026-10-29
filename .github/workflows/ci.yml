@@ -1,0 +1,74 @@
+# 每次 PR，以及推送到 main 时：构建 App、跑引擎和 App 单元测试、做 SwiftLint 与 SwiftFormat。
+# macos-26 自带 Xcode 26，才能按 iOS 26 最低版本构建。见 docs/adr/0002-ios-deployment-target.md。
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: SudokuEngine tests
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run package tests
+        run: swift test --package-path Packages/SudokuEngine
+
+  app:
+    name: App build and tests
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select an iPhone simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          UDID="$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*iPhone [^()]*(\([0-9A-Fa-f-]\{36\}\)).*/\1/p' | head -n 1)"
+          if [ -z "${UDID}" ]; then
+            echo "No available iPhone simulator"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "udid=${UDID}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project SudokuApp/SudokuApp.xcodeproj \
+            -scheme SudokuApp \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="-"
+
+  lint:
+    name: SwiftLint and SwiftFormat
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install linters
+        run: brew install swiftlint swiftformat
+
+      - name: SwiftLint
+        run: swiftlint lint --strict
+
+      - name: SwiftFormat
+        run: swiftformat --lint .
