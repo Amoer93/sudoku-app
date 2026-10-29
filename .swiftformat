@@ -1,0 +1,7 @@
+# 只启用稳定的排版规则，避免 SwiftFormat 版本升级改写业务代码。
+--indent 4
+--linebreaks lf
+--maxwidth 120
+--swiftversion 5.10
+--exclude .build,DerivedData
+--rules braces,consecutiveBlankLines,consecutiveSpaces,elseOnSameLine,indent,linebreakAtEndOfFile,linebreaks,redundantSelf,semicolons,sortedImports,spaceAroundBraces,spaceAroundOperators,spaceInsideBraces,spaceInsideParens,trailingSpace
