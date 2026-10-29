@@ -35,7 +35,7 @@ struct BoardScreen: View {
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await model.loadSolutionCount()
+            await model.refreshSolutionCount()
         }
     }
 
@@ -57,8 +57,8 @@ struct BoardScreen: View {
         BoardGridView(rules: model.rules, cells: model.cellStates) { index in
             model.select(index: index)
         }
-            .opacity(model.isSolving ? 0.55 : 1)
-            .allowsHitTesting(!model.isSolving)
+        .opacity(model.isSolving ? 0.55 : 1)
+        .allowsHitTesting(!model.isSolving)
     }
 
     private var controls: some View {

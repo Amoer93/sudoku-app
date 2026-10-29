@@ -1,20 +1,22 @@
 import Observation
 
-/// 一次离线求解的结果。放在类型外面，耗时调用就不待在主线程方法里。
+/// 唯一性检查最多数到 2：0 无解，1 唯一，2 表示至少还有另一个解。
+private let solutionCountLimit = 2
+
+/// 一次离线求解的结果。计数针对求解前的盘面，不是填满之后的那一盘。
 private struct SolveOutcome: Sendable {
     let grid: Grid?
     let count: Int
 }
 
-/// 替身和以后的真引擎都从这里调用。不要在视图模型里写搜索。
+/// 对求解前的盘面计数。不要把填满的结果再送进 `solutionCount`，否则多解题会变成 1。
 private func makeSolveOutcome(
     engine: any SudokuBoardEngine,
     grid: Grid,
     rules: Rules
 ) -> SolveOutcome {
     let solved = engine.solve(grid, rules: rules)
-    let counted = solved ?? grid
-    let count = engine.solutionCount(counted, rules: rules)
+    let count = engine.solutionCount(grid, rules: rules, limit: solutionCountLimit)
     return SolveOutcome(grid: solved, count: count)
 }
 
@@ -29,6 +31,8 @@ final class BoardViewModel {
     private let givens: Set<Int>
     private var undoStack: [Grid] = []
     private var redoStack: [Grid] = []
+    private var countGeneration = 0
+    private var countTask: Task<Void, Never>?
 
     private(set) var grid: Grid
     private(set) var selectedIndex: Int?
@@ -43,7 +47,8 @@ final class BoardViewModel {
         self.engine = engine
         grid = puzzle.givens
         givens = Self.givenIndexes(in: puzzle.givens)
-        conflicts = engine.conflicts(in: puzzle.givens, rules: puzzle.rules)
+        let found = engine.conflicts(in: puzzle.givens, rules: puzzle.rules)
+        conflicts = Self.linearSet(found, size: puzzle.rules.size)
     }
 
     var cellStates: [BoardCellState] {
@@ -62,7 +67,7 @@ final class BoardViewModel {
 
     var canClear: Bool {
         !isSolving && grid.cells.enumerated().contains { index, value in
-            value != 0 && !givens.contains(index)
+            value != Grid.emptyCell && !givens.contains(index)
         }
     }
 
@@ -130,24 +135,25 @@ final class BoardViewModel {
         guard !isSolving, let selectedIndex, accepts(value) else {
             return
         }
-        guard grid.cells.indices.contains(selectedIndex) else {
+        guard let cell = cell(at: selectedIndex) else {
             return
         }
         guard !givens.contains(selectedIndex) else {
             notice = .givenLocked
             return
         }
-        guard grid.cells[selectedIndex] != value else {
+        guard grid[cell] != value else {
             return
         }
         pushUndo()
-        grid.cells[selectedIndex] = value
+        grid[cell] = value
         refreshConflicts()
         notice = .idle
+        scheduleSolutionCount()
     }
 
     func clearSelected() {
-        enter(0)
+        enter(Grid.emptyCell)
     }
 
     func clearUserEntries() {
@@ -162,6 +168,7 @@ final class BoardViewModel {
         grid = next
         refreshConflicts()
         notice = .cleared
+        scheduleSolutionCount()
     }
 
     func undo() {
@@ -172,24 +179,27 @@ final class BoardViewModel {
         move(from: &redoStack, onto: &undoStack)
     }
 
-    func loadSolutionCount() async {
-        let snapshot = grid
-        let activeRules = rules
-        let count = await Task.detached { [engine] in
-            engine.solutionCount(snapshot, rules: activeRules)
-        }.value
-        guard snapshot == grid, !Task.isCancelled else {
-            return
-        }
-        solutionCount = count
+    /// 按当前盘面重新计数。旧请求作废，避免界面停在「正在查看」。
+    func refreshSolutionCount() async {
+        scheduleSolutionCount()
+        await countTask?.value
+    }
+
+    /// 等最近一次后台计数结束。输入和撤销自己会发起计数，测试用这个收口。
+    func finishSolutionCount() async {
+        await countTask?.value
     }
 
     func autoSolve() async {
         guard beginSolve() else {
             return
         }
-        let outcome = await fetchOutcome()
-        guard !Task.isCancelled else {
+        countTask?.cancel()
+        countGeneration += 1
+        let generation = countGeneration
+        let snapshot = grid
+        let outcome = await fetchOutcome(for: snapshot)
+        guard !Task.isCancelled, generation == countGeneration else {
             isSolving = false
             return
         }
@@ -209,7 +219,7 @@ private extension BoardViewModel {
         return BoardCopy.enterDigit
     }
 
-    private func state(at index: Int) -> BoardCellState {
+    func state(at index: Int) -> BoardCellState {
         let size = max(rules.size, 1)
         return BoardCellState(
             index: index,
@@ -222,30 +232,40 @@ private extension BoardViewModel {
         )
     }
 
-    private func accepts(_ value: Int) -> Bool {
-        if value == 0 {
+    func accepts(_ value: Int) -> Bool {
+        if value == Grid.emptyCell {
             return true
         }
         guard rules.size > 0 else {
             return false
         }
-        return (1...rules.size).contains(value)
+        return (1 ... rules.size).contains(value)
     }
 
-    private func clearedGrid() -> Grid {
+    func cell(at index: Int) -> CellIndex? {
+        guard rules.size > 0, grid.cells.indices.contains(index) else {
+            return nil
+        }
+        return CellIndex(linearIndex: index, size: rules.size)
+    }
+
+    func clearedGrid() -> Grid {
         var next = grid
         for index in next.cells.indices where !givens.contains(index) {
-            next.cells[index] = 0
+            guard let cell = cell(at: index) else {
+                continue
+            }
+            next[cell] = Grid.emptyCell
         }
         return next
     }
 
-    private func pushUndo() {
+    func pushUndo() {
         undoStack.append(grid)
         redoStack.removeAll()
     }
 
-    private func move(from source: inout [Grid], onto destination: inout [Grid]) {
+    func move(from source: inout [Grid], onto destination: inout [Grid]) {
         guard !isSolving, let replacement = source.popLast() else {
             return
         }
@@ -253,13 +273,29 @@ private extension BoardViewModel {
         grid = replacement
         refreshConflicts()
         notice = .idle
+        scheduleSolutionCount()
     }
 
-    private func refreshConflicts() {
-        conflicts = engine.conflicts(in: grid, rules: rules)
+    func refreshConflicts() {
+        conflicts = Self.linearSet(engine.conflicts(in: grid, rules: rules), size: rules.size)
     }
 
-    private func beginSolve() -> Bool {
+    func scheduleSolutionCount() {
+        countTask?.cancel()
+        countGeneration += 1
+        let generation = countGeneration
+        let snapshot = grid
+        let activeRules = rules
+        countTask = Task {
+            let count = await Self.countSolutions(engine: engine, grid: snapshot, rules: activeRules)
+            guard !Task.isCancelled, generation == countGeneration else {
+                return
+            }
+            solutionCount = count
+        }
+    }
+
+    func beginSolve() -> Bool {
         guard !isSolving else {
             return false
         }
@@ -268,15 +304,14 @@ private extension BoardViewModel {
         return true
     }
 
-    private func fetchOutcome() async -> SolveOutcome {
-        let snapshot = grid
+    func fetchOutcome(for snapshot: Grid) async -> SolveOutcome {
         let activeRules = rules
         return await Task.detached { [engine] in
             makeSolveOutcome(engine: engine, grid: snapshot, rules: activeRules)
         }.value
     }
 
-    private func apply(_ outcome: SolveOutcome) {
+    func apply(_ outcome: SolveOutcome) {
         isSolving = false
         solutionCount = outcome.count
         guard let solved = outcome.grid else {
@@ -291,9 +326,27 @@ private extension BoardViewModel {
         notice = .solved
     }
 
-    private static func givenIndexes(in grid: Grid) -> Set<Int> {
+    static func countSolutions(
+        engine: any SudokuBoardEngine,
+        grid: Grid,
+        rules: Rules
+    ) async -> Int {
+        await Task.detached {
+            engine.solutionCount(grid, rules: rules, limit: solutionCountLimit)
+        }.value
+    }
+
+    static func linearSet(_ cells: Set<CellIndex>, size: Int) -> Set<Int> {
         var indexes: Set<Int> = []
-        for (index, value) in grid.cells.enumerated() where value != 0 {
+        for cell in cells {
+            indexes.insert(cell.linearIndex(size: size))
+        }
+        return indexes
+    }
+
+    static func givenIndexes(in grid: Grid) -> Set<Int> {
+        var indexes: Set<Int> = []
+        for (index, value) in grid.cells.enumerated() where value != Grid.emptyCell {
             indexes.insert(index)
         }
         return indexes

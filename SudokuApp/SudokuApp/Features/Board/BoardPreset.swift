@@ -33,11 +33,11 @@ enum BoardPreset: String, CaseIterable, Identifiable {
     var rules: Rules {
         switch self {
         case .four:
-            return Rules(size: 4, boxRows: 2, boxCols: 2)
+            return .fourByFour
         case .five:
-            return Rules(size: 5, boxRows: nil, boxCols: nil)
+            return .fiveByFive
         case .nine:
-            return Rules(size: 9, boxRows: 3, boxCols: 3)
+            return .nineByNine
         }
     }
 }

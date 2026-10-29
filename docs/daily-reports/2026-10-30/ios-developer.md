@@ -6,19 +6,20 @@
 - 数字键盘、选中高亮、冲突高亮、撤销、重做、清除当前格、清空自行填入的数字。
 - 首页尺寸入口和「自动解题」。求解放在后台线程，结果回到主线程再改棋盘。
 - 单元测试覆盖宫线、示例题面、撤销栈，以及视图模型只消费引擎返回值。
+- 按 [PR #3 审查](https://github.com/Amoer93/sudoku-app/pull/3#pullrequestreview-5699668084) 改了三处：协议签名对齐 PR #2（`Set<CellIndex>`、`solutionCount` 的 `limit`、会抛错的 `Rules` 初始化、`Grid.cells` 只读）；自动解题只对求解前的盘面计数，输入、撤销、重做、清空会在后台重算；SwiftFormat 的区间空格、import 顺序和缩进。
 
 ## 进行中
 
-- [PR #3](https://github.com/Amoer93/sudoku-app/pull/3) 已打开，等 CI、非作者审查和 Ari 确认。
+- [PR #3](https://github.com/Amoer93/sudoku-app/pull/3) 审查意见已改，等 CI 重新变绿。
 
 ## 阻塞问题
 
-- `main` 上的 `SudokuEngine` 仍是 P0 占位，Rules / Grid / conflicts / solve / solutionCount 的接口 PR 还没合并。按任务约定，界面依赖 App 内协议 `SudokuBoardEngine`，没有改 `Packages/SudokuEngine`。
+- `main` 上的 `SudokuEngine` 仍是 P0 占位。PR #2 的接口已冻结，但求解还是 `fatalError`，所以仍然不调用它，只把 App 内协议改成同一组签名。
 - 当前环境没有 macOS / Xcode，`xcodebuild test` 没在本地跑，需要看 CI。
 
 ## 明日计划
 
-- 看 CI。引擎接口合并后，把 `FixtureBoardEngine` 换成转调 `SudokuEngine` 的适配器，视图模型不用改。
+- 等这次 CI。求解实现不再 `fatalError` 之后，用只转发的适配器换掉 `FixtureBoardEngine`。
 
 ## 风险
 
@@ -27,9 +28,9 @@
 
 ## 用替身模拟的部分
 
-- `Rules`、`Grid` 的字段按技术设计放在 App 内，方便以后删除并改为 `import SudokuEngine`。
-- `FixtureBoardEngine.solve` 直接返回示例答案，不搜索。
-- `solutionCount` 只返回 0 或 1，表示当前填法和示例答案是否矛盾。
+- `Rules`、`Grid`、`CellIndex` 仍在 App 内，公开形状与 PR #2 一致，方便以后删掉并 `import SudokuEngine`。适配器只转发，不做换算。
+- `FixtureBoardEngine.solve` 直接返回示例答案，不搜索。冲突仍是和示例答案不一致的格子，不是行列宫重复。
+- 替身的 `solutionCount` 在对得上答案时返回 1，对不上返回 0，并且遵守 `limit`。多解的表现由测试里的脚本引擎覆盖。
 - 三道题的数字是写死的，不是生成的。
 
 ## Token / 成本说明

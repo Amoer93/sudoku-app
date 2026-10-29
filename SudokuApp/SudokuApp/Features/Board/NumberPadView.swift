@@ -18,7 +18,7 @@ struct NumberPadView: View {
     private var pad: some View {
         VStack(spacing: 8) {
             LazyVGrid(columns: digitColumns, spacing: 8) {
-                ForEach(1...size, id: \.self) { digit in
+                ForEach(1 ... size, id: \.self) { digit in
                     Button(String(digit)) {
                         onDigit(digit)
                     }

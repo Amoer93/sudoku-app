@@ -48,9 +48,9 @@ struct BoardGridView: View {
         let cellSide = side / CGFloat(rules.size)
         // 模型也叫 Grid，这里要写成 SwiftUI.Grid，避免和棋盘数据撞名。
         return SwiftUI.Grid(horizontalSpacing: 0, verticalSpacing: 0) {
-            ForEach(0..<rules.size, id: \.self) { row in
+            ForEach(0 ..< rules.size, id: \.self) { row in
                 GridRow {
-                    ForEach(0..<rules.size, id: \.self) { column in
+                    ForEach(0 ..< rules.size, id: \.self) { column in
                         cellAt(row: row, column: column, side: cellSide)
                     }
                 }
@@ -109,7 +109,7 @@ struct BoardGridView: View {
     }
 
     private func strokePass(in context: inout GraphicsContext, size: CGSize, step: CGFloat, thick: Bool) {
-        for line in 0...rules.size {
+        for line in 0 ... rules.size {
             stroke(in: &context, size: size, step: step, line: line, vertical: true, thick: thick)
             stroke(in: &context, size: size, step: step, line: line, vertical: false, thick: thick)
         }
@@ -124,7 +124,8 @@ struct BoardGridView: View {
         thick: Bool
     ) {
         let weight = lineWeight(line: line, vertical: vertical)
-        guard (weight != .hairline) == thick else {
+        let isThick = weight != .hairline
+        guard isThick == thick else {
             return
         }
         let width = CGFloat(weight.points)

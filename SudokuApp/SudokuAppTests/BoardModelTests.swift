@@ -1,48 +1,64 @@
-@testable import SudokuApp
 import Foundation
+@testable import SudokuApp
 import XCTest
 
 final class BoardModelTests: XCTestCase {
     func testRulesUseDesignFieldNames() throws {
-        let rules = Rules(size: 9, boxRows: 3, boxCols: 3)
+        let rules = try Rules(size: 9, boxRows: 3, boxCols: 3)
         let rulesText = try jsonText(rules)
         XCTAssertTrue(rulesText.contains("\"size\":9"))
         XCTAssertTrue(rulesText.contains("\"boxRows\":3"))
         XCTAssertTrue(rulesText.contains("\"boxCols\":3"))
 
-        let five = Rules(size: 5, boxRows: nil, boxCols: nil)
-        let decoded = try JSONDecoder().decode(Rules.self, from: Data(try jsonText(five).utf8))
+        let five = Rules.fiveByFive
+        let fiveText = try jsonText(five)
+        XCTAssertTrue(fiveText.contains("\"boxRows\":null"))
+        XCTAssertTrue(fiveText.contains("\"boxCols\":null"))
+        let decoded = try JSONDecoder().decode(Rules.self, from: Data(fiveText.utf8))
         XCTAssertEqual(decoded, five)
 
-        // 显式写出 null，锁住字段名。合成 Codable 可能省略 nil，不能靠编码结果判断。
         let explicit = Data("{\"size\":5,\"boxRows\":null,\"boxCols\":null}".utf8)
         let fromNull = try JSONDecoder().decode(Rules.self, from: explicit)
         XCTAssertEqual(fromNull, five)
     }
 
     func testGridUsesCellsField() throws {
-        let grid = Grid(cells: [0, 1, 2])
+        let grid = try Grid(size: 4, cells: [0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         let text = try jsonText(grid)
         XCTAssertTrue(text.contains("\"cells\""))
+        XCTAssertTrue(text.contains("\"size\":4"))
         let decoded = try JSONDecoder().decode(Grid.self, from: Data(text.utf8))
         XCTAssertEqual(decoded, grid)
+        XCTAssertEqual(grid.cells.first, Grid.emptyCell)
     }
 
-    func testBoxSpanFollowsOptionalBoxes() {
-        let four = Rules(size: 4, boxRows: 2, boxCols: 2).boxSpan
-        XCTAssertEqual(four?.rows, 2)
-        XCTAssertEqual(four?.cols, 2)
-        XCTAssertNil(Rules(size: 5, boxRows: nil, boxCols: nil).boxSpan)
-        XCTAssertNil(Rules(size: 5, boxRows: 1, boxCols: nil).boxSpan)
-        XCTAssertNil(Rules(size: 5, boxRows: 0, boxCols: 0).boxSpan)
+    func testRulesInitializerRejectsUnsupportedShapes() throws {
+        XCTAssertThrowsError(try Rules(size: 6, boxRows: 2, boxCols: 3)) { error in
+            let expected = Rules.ValidationError.invalidBoxDimensions(size: 6, boxRows: 2, boxCols: 3)
+            XCTAssertEqual(error as? Rules.ValidationError, expected)
+        }
+        XCTAssertThrowsError(try Rules(size: 5, boxRows: 1, boxCols: nil))
+        XCTAssertThrowsError(try Rules(size: 0, boxRows: nil, boxCols: nil))
+        let four = try Rules(size: 4, boxRows: 2, boxCols: 2)
+        XCTAssertEqual(four, Rules.fourByFour)
+    }
+
+    func testGridRejectsMismatchedLength() {
+        XCTAssertThrowsError(try Grid(size: 4, cells: [1])) { error in
+            let expected = Grid.ValidationError.cellCountMismatch(expected: 16, actual: 1)
+            XCTAssertEqual(error as? Grid.ValidationError, expected)
+        }
+        XCTAssertThrowsError(try Grid(size: 4, cells: Array(repeating: 8, count: 16)))
     }
 
     func testPresetsCoverPlayableSizes() {
         XCTAssertEqual(BoardPreset.allCases.map(\.title), ["4×4", "5×5", "9×9"])
-        XCTAssertEqual(BoardPreset.four.rules, Rules(size: 4, boxRows: 2, boxCols: 2))
-        XCTAssertEqual(BoardPreset.five.rules, Rules(size: 5, boxRows: nil, boxCols: nil))
-        XCTAssertEqual(BoardPreset.nine.rules, Rules(size: 9, boxRows: 3, boxCols: 3))
+        XCTAssertEqual(BoardPreset.four.rules, Rules.fourByFour)
+        XCTAssertEqual(BoardPreset.five.rules, Rules.fiveByFive)
+        XCTAssertEqual(BoardPreset.nine.rules, Rules.nineByNine)
         XCTAssertEqual(BoardPreset.five.detail, "拉丁方，无宫")
+        XCTAssertNil(Rules.fiveByFive.boxRows)
+        XCTAssertTrue(Rules.nineByNine.hasBoxes)
     }
 
     func testNineByNineBoxLines() {
@@ -66,7 +82,7 @@ final class BoardModelTests: XCTestCase {
 
     func testFiveByFiveHasNoBoxLines() {
         let rules = BoardPreset.five.rules
-        for line in 0...rules.size {
+        for line in 0 ... rules.size {
             XCTAssertNotEqual(BoardLines.verticalWeight(line: line, rules: rules), .box)
             XCTAssertNotEqual(BoardLines.horizontalWeight(line: line, rules: rules), .box)
         }
@@ -74,18 +90,16 @@ final class BoardModelTests: XCTestCase {
         XCTAssertEqual(BoardLines.verticalWeight(line: 1, rules: rules), .hairline)
     }
 
-    func testRectangularBoxesUseDifferentSpans() {
-        let rules = Rules(size: 6, boxRows: 2, boxCols: 3)
-        XCTAssertEqual(BoardLines.verticalWeight(line: 3, rules: rules), .box)
-        XCTAssertEqual(BoardLines.verticalWeight(line: 2, rules: rules), .hairline)
-        XCTAssertEqual(BoardLines.horizontalWeight(line: 2, rules: rules), .box)
-        XCTAssertEqual(BoardLines.horizontalWeight(line: 3, rules: rules), .hairline)
+    func testRowAndColumnSpansAreIndependent() {
+        XCTAssertEqual(BoardLines.weight(line: 3, size: 6, span: 3), .box)
+        XCTAssertEqual(BoardLines.weight(line: 2, size: 6, span: 3), .hairline)
+        XCTAssertEqual(BoardLines.weight(line: 2, size: 6, span: 2), .box)
+        XCTAssertEqual(BoardLines.weight(line: 3, size: 6, span: 2), .hairline)
     }
 
     func testInvalidLineDoesNotCrash() {
-        let rules = Rules(size: 0, boxRows: nil, boxCols: nil)
-        XCTAssertEqual(BoardLines.verticalWeight(line: 0, rules: rules), .hairline)
-        XCTAssertEqual(BoardLines.horizontalWeight(line: -1, rules: rules), .hairline)
+        XCTAssertEqual(BoardLines.weight(line: 0, size: 0, span: nil), .hairline)
+        XCTAssertEqual(BoardLines.weight(line: -1, size: 4, span: 2), .hairline)
     }
 
     func testCellLabelDescribesConflict() {

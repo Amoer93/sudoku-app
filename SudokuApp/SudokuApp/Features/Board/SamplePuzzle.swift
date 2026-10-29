@@ -7,20 +7,31 @@ struct SamplePuzzle: Equatable, Sendable {
 
 /// 把题面字符串转成格子。点号是空格，其余按数字读。
 enum DigitRows {
-    static func grid(_ rows: [String]) -> Grid {
-        Grid(cells: rows.flatMap(cells(in:)))
+    static func cells(_ rows: [String]) -> [Int] {
+        rows.flatMap(values(in:))
     }
 
-    private static func cells(in row: String) -> [Int] {
+    private static func values(in row: String) -> [Int] {
         var values: [Int] = []
         for character in row {
             if let digit = character.wholeNumberValue {
                 values.append(digit)
             } else if character == "." {
-                values.append(0)
+                values.append(Grid.emptyCell)
             }
         }
         return values
+    }
+}
+
+/// 示例题构造失败时退回空盘，测试会先拦住写错的题面。
+enum SampleGrid {
+    static func make(rules: Rules, rows: [String]) -> Grid {
+        do {
+            return try Grid(size: rules.size, cells: DigitRows.cells(rows))
+        } catch {
+            return Grid(rules: rules)
+        }
     }
 }
 
@@ -42,20 +53,20 @@ enum FixtureLibrary {
     }
 
     private static let four = SamplePuzzle(
-        rules: BoardPreset.four.rules,
-        givens: DigitRows.grid(["123.", "3.12", ".143", "432."]),
-        solution: DigitRows.grid(["1234", "3412", "2143", "4321"])
+        rules: .fourByFour,
+        givens: SampleGrid.make(rules: .fourByFour, rows: ["123.", "3.12", ".143", "432."]),
+        solution: SampleGrid.make(rules: .fourByFour, rows: ["1234", "3412", "2143", "4321"])
     )
 
     private static let five = SamplePuzzle(
-        rules: BoardPreset.five.rules,
-        givens: DigitRows.grid(["12.45", "2.451", ".4512", "451.3", "512.4"]),
-        solution: DigitRows.grid(["12345", "23451", "34512", "45123", "51234"])
+        rules: .fiveByFive,
+        givens: SampleGrid.make(rules: .fiveByFive, rows: ["12.45", "2.451", ".4512", "451.3", "512.4"]),
+        solution: SampleGrid.make(rules: .fiveByFive, rows: ["12345", "23451", "34512", "45123", "51234"])
     )
 
     private static let nine = SamplePuzzle(
-        rules: BoardPreset.nine.rules,
-        givens: DigitRows.grid([
+        rules: .nineByNine,
+        givens: SampleGrid.make(rules: .nineByNine, rows: [
             "53..7....",
             "6..195...",
             ".98....6.",
@@ -66,7 +77,7 @@ enum FixtureLibrary {
             "...419..5",
             "....8..79",
         ]),
-        solution: DigitRows.grid([
+        solution: SampleGrid.make(rules: .nineByNine, rows: [
             "534678912",
             "672195348",
             "198342567",

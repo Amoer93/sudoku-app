@@ -125,20 +125,84 @@ final class BoardViewModelTests: XCTestCase {
     }
 
     func testLoadSolutionCount() async {
-        let engine = ScriptedBoardEngine(countedSolutions: 2)
+        let engine = ScriptedBoardEngine(partialCount: 2, completeCount: 1)
         let model = await makeModel(engine: engine)
         let before = await model.solutionCountText
         XCTAssertEqual(before, BoardCopy.checkingSolutions)
-        await model.loadSolutionCount()
+        await model.refreshSolutionCount()
         let text = await model.solutionCountText
         XCTAssertEqual(text, BoardCopy.multipleSolutions)
+        let count = await model.solutionCount
+        XCTAssertEqual(count, 2)
         let warning = await model.solutionCountIsWarning
         XCTAssertFalse(warning)
     }
 
+    func testAutoSolveKeepsCountOfTheUnsolvedPuzzle() async {
+        let solved = filledFour()
+        let engine = ScriptedBoardEngine(solvedGrid: solved, partialCount: 2, completeCount: 1)
+        let model = await makeModel(engine: engine)
+        await model.refreshSolutionCount()
+        let before = await model.solutionCount
+        XCTAssertEqual(before, 2)
+        await model.autoSolve()
+        let grid = await model.grid
+        XCTAssertEqual(grid, solved)
+        let count = await model.solutionCount
+        XCTAssertEqual(count, 2)
+        let text = await model.solutionCountText
+        XCTAssertEqual(text, BoardCopy.multipleSolutions)
+    }
+
+    func testEditingAndUndoRefreshSolutionCount() async {
+        let engine = ScriptedBoardEngine(partialCount: 2, completeCount: 1)
+        let model = await makeModel(engine: engine)
+        for index in 0 ..< 16 {
+            await model.select(index: index)
+            await model.enter(1)
+        }
+        await model.finishSolutionCount()
+        let filled = await model.solutionCount
+        XCTAssertEqual(filled, 1)
+        await model.undo()
+        await model.finishSolutionCount()
+        let undone = await model.solutionCount
+        XCTAssertEqual(undone, 2)
+    }
+
+    func testTwoUndosThenEntryClearsRedo() async {
+        let model = await makeModel()
+        await model.select(index: 1)
+        await model.enter(2)
+        await model.select(index: 2)
+        await model.enter(3)
+        await model.undo()
+        await model.undo()
+        let ready = await model.canRedo
+        XCTAssertTrue(ready)
+        await model.select(index: 1)
+        await model.enter(4)
+        let dropped = await model.canRedo
+        XCTAssertFalse(dropped)
+        let cells = await model.grid.cells
+        XCTAssertEqual(cells[1], 4)
+        XCTAssertEqual(cells[2], Grid.emptyCell)
+    }
+
+    func testUndoAsksEngineForConflictsAgain() async {
+        let model = await makeModel(engine: ValueConflictEngine())
+        await model.select(index: 4)
+        await model.enter(4)
+        var states = await model.cellStates
+        XCTAssertTrue(states[4].isConflict)
+        await model.undo()
+        states = await model.cellStates
+        XCTAssertFalse(states[4].isConflict)
+    }
+
     func testAutoSolveAppliesEngineResult() async {
-        let solved = Grid(cells: Array(repeating: 7, count: 16))
-        let engine = ScriptedBoardEngine(solvedGrid: solved, countedSolutions: 1)
+        let solved = filledFour()
+        let engine = ScriptedBoardEngine(solvedGrid: solved, partialCount: 1, completeCount: 1)
         let model = await makeModel(engine: engine)
         await model.autoSolve()
         let grid = await model.grid
@@ -149,11 +213,11 @@ final class BoardViewModelTests: XCTestCase {
         XCTAssertEqual(text, BoardCopy.uniqueSolution)
         await model.undo()
         let restored = await model.grid.cells
-        XCTAssertEqual(restored, Array(repeating: 0, count: 16))
+        XCTAssertEqual(restored, Array(repeating: Grid.emptyCell, count: 16))
     }
 
     func testFailedSolveKeepsTheGrid() async {
-        let engine = ScriptedBoardEngine(solvedGrid: nil, countedSolutions: 0)
+        let engine = ScriptedBoardEngine(solvedGrid: nil, partialCount: 0, completeCount: 0)
         let model = await makeModel(engine: engine)
         await model.select(index: 2)
         await model.enter(3)
@@ -169,7 +233,7 @@ final class BoardViewModelTests: XCTestCase {
     }
 
     func testSolveOfSameGridDoesNotPushUndo() async {
-        let empty = Grid(cells: Array(repeating: 0, count: 16))
+        let empty = Grid(rules: Rules.fourByFour)
         let model = await makeModel(engine: ScriptedBoardEngine(solvedGrid: empty))
         await model.autoSolve()
         let canUndo = await model.canUndo
@@ -178,26 +242,33 @@ final class BoardViewModelTests: XCTestCase {
         XCTAssertEqual(notice, .solved)
     }
 
-    @MainActor
-    private func makeModel(
-        cells: [Int]? = nil,
-        engine: any SudokuBoardEngine = ScriptedBoardEngine()
-    ) -> BoardViewModel {
-        let rules = Rules(size: 4, boxRows: 2, boxCols: 2)
-        let values = cells ?? Array(repeating: 0, count: 16)
-        let grid = Grid(cells: values)
-        let puzzle = SamplePuzzle(rules: rules, givens: grid, solution: grid)
-        return BoardViewModel(title: "4×4", puzzle: puzzle, engine: engine)
-    }
 }
 
-/// 测试用引擎。冲突和答案都由用例指定，视图模型不应该自己改。
-struct ScriptedBoardEngine: SudokuBoardEngine {
-    var conflictIndexes: Set<Int> = []
-    var solvedGrid: Grid?
-    var countedSolutions = 1
+@MainActor
+private func makeModel(
+    cells: [Int]? = nil,
+    engine: any SudokuBoardEngine = ScriptedBoardEngine()
+) -> BoardViewModel {
+    let rules = Rules.fourByFour
+    let values = cells ?? Array(repeating: Grid.emptyCell, count: rules.cellCount)
+    let grid = (try? Grid(size: rules.size, cells: values)) ?? Grid(rules: rules)
+    let puzzle = SamplePuzzle(rules: rules, givens: grid, solution: grid)
+    return BoardViewModel(title: "4×4", puzzle: puzzle, engine: engine)
+}
 
-    func conflicts(in grid: Grid, rules: Rules) -> Set<Int> {
+private func filledFour() -> Grid {
+    let cells = Array(repeating: 1, count: 16)
+    return (try? Grid(size: 4, cells: cells)) ?? Grid(rules: .fourByFour)
+}
+
+/// 测试用引擎。残局和完整盘面可以返回不同的解个数，视图模型必须把入参传进去。
+struct ScriptedBoardEngine: SudokuBoardEngine {
+    var conflictIndexes: Set<CellIndex> = []
+    var solvedGrid: Grid?
+    var partialCount = 1
+    var completeCount = 1
+
+    func conflicts(in grid: Grid, rules: Rules) -> Set<CellIndex> {
         conflictIndexes
     }
 
@@ -205,26 +276,33 @@ struct ScriptedBoardEngine: SudokuBoardEngine {
         solvedGrid
     }
 
-    func solutionCount(_ grid: Grid, rules: Rules) -> Int {
-        countedSolutions
+    func solutionCount(_ grid: Grid, rules: Rules, limit: Int) -> Int {
+        if limit <= 0 {
+            return 0
+        }
+        let raw = grid.cells.contains(Grid.emptyCell) ? partialCount : completeCount
+        return min(raw, limit)
     }
 }
 
-/// 数字 4 标成冲突，用来确认每次输入都会重新问引擎。
+/// 数字 4 标成冲突，用来确认每次输入和撤销都会重新问引擎。
 final class ValueConflictEngine: SudokuBoardEngine, Sendable {
-    func conflicts(in grid: Grid, rules: Rules) -> Set<Int> {
-        var indexes: Set<Int> = []
-        for (index, value) in grid.cells.enumerated() where value == 4 {
-            indexes.insert(index)
+    func conflicts(in grid: Grid, rules: Rules) -> Set<CellIndex> {
+        var found: Set<CellIndex> = []
+        for (offset, value) in grid.cells.enumerated() where value == 4 {
+            found.insert(CellIndex(linearIndex: offset, size: grid.size))
         }
-        return indexes
+        return found
     }
 
     func solve(_ grid: Grid, rules: Rules) -> Grid? {
         nil
     }
 
-    func solutionCount(_ grid: Grid, rules: Rules) -> Int {
-        0
+    func solutionCount(_ grid: Grid, rules: Rules, limit: Int) -> Int {
+        if limit <= 0 {
+            return 0
+        }
+        return 0
     }
 }
