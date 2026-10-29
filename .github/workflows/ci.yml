@@ -1,5 +1,7 @@
 # 每次 PR，以及推送到 main 时：构建 App、跑引擎和 App 单元测试、做 SwiftLint 与 SwiftFormat。
 # macos-26 自带 Xcode 26，才能按 iOS 26 最低版本构建。见 docs/adr/0002-ios-deployment-target.md。
+# macos-26 runner 很紧张：多个 job 同时申请会排不上队，约 15 分钟后被 GitHub 取消。
+# 所以所有 macOS 工作合并成一个 job，按顺序执行，同一时间只申请一个 runner。
 
 name: CI
 
@@ -17,22 +19,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  engine:
-    name: SudokuEngine tests
+  macos:
+    name: Build, test and lint
     runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run package tests
+      # 先跑检查类步骤，出错能早点发现
+      - name: Install linters
+        run: brew install swiftlint swiftformat
+
+      - name: SwiftLint
+        run: swiftlint lint --strict
+
+      - name: SwiftFormat
+        run: swiftformat --lint .
+
+      - name: Run SudokuEngine package tests
         run: swift test --package-path Packages/SudokuEngine
-
-  app:
-    name: App build and tests
-    runs-on: macos-26
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
       - name: Select an iPhone simulator
         id: simulator
@@ -46,7 +51,7 @@ jobs:
           fi
           echo "udid=${UDID}" >> "${GITHUB_OUTPUT}"
 
-      - name: Build and test
+      - name: App build and tests
         run: |
           set -euo pipefail
           xcodebuild test \
@@ -56,19 +61,3 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="-"
-
-  lint:
-    name: SwiftLint and SwiftFormat
-    runs-on: macos-26
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install linters
-        run: brew install swiftlint swiftformat
-
-      - name: SwiftLint
-        run: swiftlint lint --strict
-
-      - name: SwiftFormat
-        run: swiftformat --lint .
