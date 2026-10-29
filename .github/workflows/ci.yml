@@ -1,5 +1,12 @@
 # 每次 PR，以及推送到 main 时：构建 App、跑引擎和 App 单元测试、做 SwiftLint 与 SwiftFormat。
 # macos-26 自带 Xcode 26，才能按 iOS 26 最低版本构建。见 docs/adr/0002-ios-deployment-target.md。
+#
+# macos-26 是 arm64 托管 runner，容量紧。三个 job 同时申请时，大约 15 分钟还分不到机器的
+# job 会被取消（结论是 cancelled，不是 failure），注解为
+# “The job was not acquired by Runner of type hosted even after multiple attempts”。
+# 因此三个 job 共用下面的队列：同一时刻只跑一个，其余排队等候，不会互相取消。
+# 工作流这一层的 group 带 github.ref。pull_request 上它是 refs/pull/<号>/merge，
+# 只取消同一 PR 的旧运行；不同 PR 不在一组里。
 
 name: CI
 
@@ -20,6 +27,9 @@ jobs:
   engine:
     name: SudokuEngine tests
     runs-on: macos-26
+    concurrency:
+      group: ci-macos-26-${{ github.workflow }}
+      queue: max
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +40,9 @@ jobs:
   app:
     name: App build and tests
     runs-on: macos-26
+    concurrency:
+      group: ci-macos-26-${{ github.workflow }}
+      queue: max
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,6 +73,9 @@ jobs:
   lint:
     name: SwiftLint and SwiftFormat
     runs-on: macos-26
+    concurrency:
+      group: ci-macos-26-${{ github.workflow }}
+      queue: max
     steps:
       - name: Checkout
         uses: actions/checkout@v4
