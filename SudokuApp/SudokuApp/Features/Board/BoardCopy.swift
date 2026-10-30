@@ -22,6 +22,8 @@ enum BoardCopy {
     static let hint = "提示"
     static let hintHint = "高亮一个现在就能确定的格子，不会填数字"
     static let noHint = "当前无唯一解，请假设。"
+    static let hintBlockedByConflicts = "盘面有冲突，请先修正。"
+    static let noCandidates = "这一格没有能填的数字，可能前面填错了，试试撤销。"
     static let hinted = "提示：高亮的这一格现在就能确定。"
     static let clearCellHint = "清除选中的格子"
     static let autoFilter = "自动筛选"
@@ -38,6 +40,7 @@ enum BoardNotice: Equatable {
     case cleared
     case hinted
     case noHint
+    case hintBlockedByConflicts
 
     var text: String? {
         switch self {
@@ -55,12 +58,14 @@ enum BoardNotice: Equatable {
             return BoardCopy.hinted
         case .noHint:
             return BoardCopy.noHint
+        case .hintBlockedByConflicts:
+            return BoardCopy.hintBlockedByConflicts
         }
     }
 
     var isWarning: Bool {
         switch self {
-        case .givenLocked, .unsolvable:
+        case .givenLocked, .unsolvable, .hintBlockedByConflicts:
             return true
         case .idle, .solved, .cleared, .hinted, .noHint:
             return false

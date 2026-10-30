@@ -52,8 +52,8 @@ private struct PadButtonStyle: ButtonStyle {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, minHeight: 44)
+            // 禁用时只换颜色，不再叠加透明度（双重减淡对比度太低）
             .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
-            .opacity(isEnabled ? 1 : 0.5)
             .background(background(isPressed: configuration.isPressed), in: RoundedRectangle(cornerRadius: 8))
     }
 
