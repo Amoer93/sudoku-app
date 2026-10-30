@@ -1,14 +1,35 @@
 import SwiftUI
 
 /// 一局棋盘：选格、输入、冲突高亮、撤销和自动解题。
+/// 视图会被父视图反复重建，所以 ViewModel 只在第一次出现时创建一次，
+/// 避免每次 init 都新建模型、在主线程多算一次 `conflicts`。
 struct BoardScreen: View {
-    @State private var model: BoardViewModel
+    let preset: BoardPreset
+    let engine: any SudokuBoardEngine
+    @State private var model: BoardViewModel?
 
     init(preset: BoardPreset, engine: any SudokuBoardEngine = FixtureBoardEngine()) {
-        let puzzle = FixtureLibrary.puzzle(for: preset)
-        let viewModel = BoardViewModel(title: preset.title, puzzle: puzzle, engine: engine)
-        _model = State(initialValue: viewModel)
+        self.preset = preset
+        self.engine = engine
     }
+
+    var body: some View {
+        if let model {
+            BoardContentView(model: model)
+        } else {
+            ProgressView()
+                .onAppear {
+                    // 只建一次；之后父视图重建不会再进这里
+                    let puzzle = FixtureLibrary.puzzle(for: preset)
+                    model = BoardViewModel(title: preset.title, puzzle: puzzle, engine: engine)
+                }
+        }
+    }
+}
+
+/// 棋盘主体，持有已经创建好的 ViewModel。
+private struct BoardContentView: View {
+    let model: BoardViewModel
 
     var body: some View {
         ScrollView {
