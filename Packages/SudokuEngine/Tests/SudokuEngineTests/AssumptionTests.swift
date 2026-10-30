@@ -25,6 +25,21 @@ final class AssumptionTests: XCTestCase {
         XCTAssertNil(bestAssumption(in: grid, rules: .fourByFour))
     }
 
+    /// 4×4 中 (0,0) 没有候选数（盘面矛盾）时应返回 nil。
+    func testNilWhenEmptyCellHasNoCandidatesFourByFour() throws {
+        let grid = try makeGrid(size: 4, "0230 4000 1000 0000")
+        XCTAssertTrue(conflicts(in: grid, rules: .fourByFour).isEmpty)
+        XCTAssertNil(bestAssumption(in: grid, rules: .fourByFour))
+    }
+
+    /// 9×9 中 (0,0) 没有候选数（盘面矛盾）时应返回 nil。
+    func testNilWhenEmptyCellHasNoCandidatesNineByNine() throws {
+        let text = "012345678 900000000" + String(repeating: " 000000000", count: 7)
+        let grid = try makeGrid(size: 9, text)
+        XCTAssertTrue(conflicts(in: grid, rules: .nineByNine).isEmpty)
+        XCTAssertNil(bestAssumption(in: grid, rules: .nineByNine))
+    }
+
     // MARK: - MRV 与候选数
 
     /// 空 9×9 棋盘所有空格候选数相同，应选行优先下标最小的 (0,0)。
