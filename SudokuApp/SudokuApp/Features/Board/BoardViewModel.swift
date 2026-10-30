@@ -170,9 +170,14 @@ final class BoardViewModel {
             notice = .hintBlockedByConflicts
             return
         }
-        guard let cell = engine.hintCell(in: grid, rules: rules) else {
+        // 盘面已填满，没有可提示的格子，也不必说「无唯一解」
+        guard grid.cells.contains(Grid.emptyCell) else {
             hintedIndex = nil
-            notice = .noHint
+            notice = .idle
+            return
+        }
+        guard let cell = engine.hintCell(in: grid, rules: rules) else {
+            showAssumption()
             return
         }
         let index = cell.linearIndex(size: rules.size)
@@ -182,6 +187,32 @@ final class BoardViewModel {
         selectedIndex = index
         hintedIndex = index
         notice = .hinted
+    }
+
+    /// 没有确定格时改为推荐一个假设格；只选中并高亮，不改盘面。
+    private func showAssumption() {
+        guard let assumption = engine.assumptionCell(in: grid, rules: rules) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        // 先检查行列范围，因为 linearIndex 越界会直接崩溃
+        let cell = assumption.cell
+        let size = rules.size
+        guard (0 ..< size).contains(cell.row), (0 ..< size).contains(cell.column) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        let index = cell.linearIndex(size: size)
+        guard grid.cells.indices.contains(index) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        selectedIndex = index
+        hintedIndex = index
+        notice = .assumption(assumption.candidates)
     }
 
     func select(index: Int) {

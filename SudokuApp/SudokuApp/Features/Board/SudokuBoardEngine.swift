@@ -15,11 +15,25 @@ protocol SudokuBoardEngine: Sendable {
 
     /// 下一个确定格的位置（裸单或隐性唯一）。只给位置，不给数字；找不到返回 nil。
     func hintCell(in grid: Grid, rules: Rules) -> CellIndex?
+
+    /// 没有确定格时，推荐一个适合假设的格子和它的候选数；找不到返回 nil。
+    func assumptionCell(in grid: Grid, rules: Rules) -> BoardAssumption?
+}
+
+/// 推荐假设的格子和可以试的候选数（升序）。
+struct BoardAssumption: Equatable, Sendable {
+    let cell: CellIndex
+    let candidates: [Int]
 }
 
 extension SudokuBoardEngine {
     /// 默认没有提示能力，替身和测试引擎不用各自实现。
     func hintCell(in _: Grid, rules _: Rules) -> CellIndex? {
+        nil
+    }
+
+    /// 默认没有假设推荐能力，替身和测试引擎不用各自实现。
+    func assumptionCell(in _: Grid, rules _: Rules) -> BoardAssumption? {
         nil
     }
 }
