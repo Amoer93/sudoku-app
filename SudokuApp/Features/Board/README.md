@@ -26,22 +26,10 @@ App 内的 `SudokuBoardEngine` 与冻结接口一致：
 
 ## 换成真引擎
 
-等求解实现落地、不再 `fatalError` 之后，删掉 App 里的 `Rules`、`Grid`、`CellIndex`，改为 `import SudokuEngine`。适配器只转发，不做换算：
+`EngineBoardAdapter.swift` 已经 `import SudokuEngine`，按 K 的建议保留 App 自己的 `Rules`/`Grid`/`CellIndex`，适配器负责转换：
 
-```swift
-struct SudokuEngineAdapter: SudokuBoardEngine {
-    func conflicts(in grid: Grid, rules: Rules) -> Set<CellIndex> {
-        SudokuEngine.conflicts(in: grid, rules: rules)
-    }
+- 用 `try?` 构造引擎的 `Rules`/`Grid`，失败按无冲突、无解、0 个解处理，不用 `try!`。
+- 转换前先校验 `grid.size == rules.size` 和 `cells.count == size * size`，不会触发引擎的 precondition。
+- `CellIndex` 行列一一对应，不做下标换算。
 
-    func solve(_ grid: Grid, rules: Rules) -> Grid? {
-        SudokuEngine.solve(grid, rules: rules)
-    }
-
-    func solutionCount(_ grid: Grid, rules: Rules, limit: Int) -> Int {
-        SudokuEngine.solutionCount(grid, rules: rules, limit: limit)
-    }
-}
-```
-
-然后把 `BoardScreen` 的默认引擎从 `FixtureBoardEngine()` 换成这个适配器。视图模型不用改。不要在适配器里 `try!`。
+引擎求解还是 `fatalError` 的时候，默认引擎仍是 `FixtureBoardEngine()`。求解实现合并后，把 `BoardScreen` / `BoardViewModel` 的默认引擎换成 `EngineBoardAdapter()`，再删掉替身即可。
