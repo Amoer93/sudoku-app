@@ -31,6 +31,14 @@ enum BoardCopy {
     static let invalidSize = "棋盘尺寸无效"
 }
 
+extension BoardCopy {
+    /// 无唯一解时的假设提示，例如「当前无唯一解，请假设。可试：2、5」。
+    static func assumption(_ candidates: [Int]) -> String {
+        let digits = candidates.map { String($0) }.joined(separator: "、")
+        return noHint + "可试：" + digits
+    }
+}
+
 /// 操作反馈。空闲时由界面另外显示选题提示。
 enum BoardNotice: Equatable {
     case idle
@@ -40,6 +48,7 @@ enum BoardNotice: Equatable {
     case cleared
     case hinted
     case noHint
+    case assumption([Int])
     case hintBlockedByConflicts
 
     var text: String? {
@@ -58,6 +67,8 @@ enum BoardNotice: Equatable {
             return BoardCopy.hinted
         case .noHint:
             return BoardCopy.noHint
+        case let .assumption(candidates):
+            return BoardCopy.assumption(candidates)
         case .hintBlockedByConflicts:
             return BoardCopy.hintBlockedByConflicts
         }
@@ -67,7 +78,7 @@ enum BoardNotice: Equatable {
         switch self {
         case .givenLocked, .unsolvable, .hintBlockedByConflicts:
             return true
-        case .idle, .solved, .cleared, .hinted, .noHint:
+        case .idle, .solved, .cleared, .hinted, .noHint, .assumption:
             return false
         }
     }

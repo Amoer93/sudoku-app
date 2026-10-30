@@ -11,7 +11,9 @@ final class P2PolishTests: XCTestCase {
         model.enter(1)
         XCTAssertFalse(model.conflicts.isEmpty)
         let before = model.grid
+        let selectedBefore = model.selectedIndex
         model.showHint()
+        XCTAssertEqual(model.selectedIndex, selectedBefore, "冲突时不能改选中格")
         XCTAssertEqual(model.statusText, BoardCopy.hintBlockedByConflicts)
         XCTAssertTrue(model.statusIsWarning)
         XCTAssertNil(model.hintedIndex)
@@ -20,7 +22,9 @@ final class P2PolishTests: XCTestCase {
 
     func testNoHintMessageUnchangedWithoutConflicts() {
         let blank = Grid(rules: .fourByFour)
-        let model = makeModel(SamplePuzzle(rules: .fourByFour, givens: blank, solution: blank))
+        let puzzle = SamplePuzzle(rules: .fourByFour, givens: blank, solution: blank)
+        // 空盘现在会走假设路径，所以用两个方法都返回 nil 的替身
+        let model = BoardViewModel(title: "测试", puzzle: puzzle, engine: ScriptedBoardEngine())
         model.showHint()
         XCTAssertTrue(model.conflicts.isEmpty)
         XCTAssertEqual(model.statusText, BoardCopy.noHint)

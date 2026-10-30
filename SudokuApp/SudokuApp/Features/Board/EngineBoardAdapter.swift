@@ -41,6 +41,16 @@ struct EngineBoardAdapter: SudokuBoardEngine {
         return CellIndex(row: hint.target.row, column: hint.target.column)
     }
 
+    func assumptionCell(in grid: Grid, rules: Rules) -> BoardAssumption? {
+        guard let (engineGrid, engineRules) = Self.convert(grid, rules),
+              let assumption = SudokuEngine.bestAssumption(in: engineGrid, rules: engineRules)
+        else {
+            return nil
+        }
+        let cell = CellIndex(row: assumption.target.row, column: assumption.target.column)
+        return BoardAssumption(cell: cell, candidates: assumption.candidates)
+    }
+
     /// 转换并校验 `grid.size == rules.size`、`cells.count == size * size`。失败返回 nil。
     static func convert(_ grid: Grid, _ rules: Rules) -> (SudokuEngine.Grid, SudokuEngine.Rules)? {
         guard grid.size == rules.size, grid.cells.count == rules.cellCount else {

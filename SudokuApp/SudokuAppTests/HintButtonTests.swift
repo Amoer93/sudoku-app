@@ -17,10 +17,10 @@ final class HintButtonTests: XCTestCase {
     }
 
     func testNoHintShowsMessage() {
-        // 空盘没有确定格
+        // 引擎既没有确定格也没有假设格
         let blank = Grid(rules: .fourByFour)
         let empty = SamplePuzzle(rules: .fourByFour, givens: blank, solution: blank)
-        let model = makeModel(empty)
+        let model = BoardViewModel(title: "测试", puzzle: empty, engine: ScriptedBoardEngine())
         model.showHint()
         XCTAssertNil(model.hintedIndex)
         XCTAssertNil(model.selectedIndex)
