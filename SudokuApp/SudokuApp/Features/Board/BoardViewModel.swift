@@ -41,7 +41,7 @@ final class BoardViewModel {
     private(set) var notice: BoardNotice = .idle
     private(set) var isSolving = false
 
-    init(title: String, puzzle: SamplePuzzle, engine: any SudokuBoardEngine = FixtureBoardEngine()) {
+    init(title: String, puzzle: SamplePuzzle, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
         self.title = title
         rules = puzzle.rules
         self.engine = engine

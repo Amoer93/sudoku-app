@@ -4,7 +4,7 @@
 import func SudokuEngine.solutionCount
 import XCTest
 
-/// 只测转换，不调用引擎（引擎求解还是 fatalError）。
+/// 测类型转换，以及默认引擎真的能解内置题目。
 final class EngineBoardAdapterTests: XCTestCase {
     func testConvertKeepsShapeAndCells() throws {
         let grid = try Grid(size: 4, cells: [0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4])
@@ -23,5 +23,16 @@ final class EngineBoardAdapterTests: XCTestCase {
     func testZeroLimitSkipsEngine() {
         let adapter = EngineBoardAdapter()
         XCTAssertEqual(adapter.solutionCount(Grid(rules: .fourByFour), rules: .fourByFour, limit: 0), 0)
+    }
+
+    /// 默认路径走真引擎：每道内置题都能解出、唯一解，并且和写死的答案一致。
+    func testAdapterSolvesBuiltInPuzzles() throws {
+        let adapter = EngineBoardAdapter()
+        for puzzle in FixtureLibrary.all {
+            let solved = try XCTUnwrap(adapter.solve(puzzle.givens, rules: puzzle.rules))
+            XCTAssertEqual(solved, puzzle.solution)
+            XCTAssertEqual(adapter.solutionCount(puzzle.givens, rules: puzzle.rules, limit: 2), 1)
+            XCTAssertTrue(adapter.conflicts(in: puzzle.givens, rules: puzzle.rules).isEmpty)
+        }
     }
 }

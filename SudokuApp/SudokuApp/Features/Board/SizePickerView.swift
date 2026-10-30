@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 尺寸入口。选中后进入对应的示例棋盘。
+/// 尺寸入口。选中后进入对应尺寸的内置题目。
 struct SizePickerView: View {
     var body: some View {
         NavigationStack {
@@ -12,7 +12,9 @@ struct SizePickerView: View {
                     .listRowSeparator(.hidden)
                 ForEach(BoardPreset.allCases) { preset in
                     NavigationLink {
+                        // 按题目区分视图身份：换题时重建 BoardScreen，模型跟着刷新
                         BoardScreen(preset: preset)
+                            .id(preset)
                     } label: {
                         presetLabel(preset)
                     }

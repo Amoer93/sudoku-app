@@ -1,4 +1,4 @@
-/// 一道写死的示例题。答案只给替身引擎用，视图拿不到。
+/// 一道内置题目。答案只给替身引擎和测试用，视图拿不到；真引擎自己求解。
 struct SamplePuzzle: Equatable, Sendable {
     let rules: Rules
     let givens: Grid
