@@ -62,7 +62,8 @@ public func hint(in grid: Grid, rules: Rules) -> Hint? {
 /// 计算每个格子的候选数位掩码。
 ///
 /// 已填格为单一位掩码；空格为同行、同列、同宫已填数字排除后的掩码。
-private func candidateMasks(for grid: Grid, layout: BoardLayout) -> [UInt16] {
+/// 供 `hint(in:rules:)` 与 `bestAssumption(in:rules:)` 共用。
+func candidateMasks(for grid: Grid, layout: BoardLayout) -> [UInt16] {
     let allValues = UInt16((1 << grid.size) - 1)
 
     return grid.cells.enumerated().map { cell, value in
