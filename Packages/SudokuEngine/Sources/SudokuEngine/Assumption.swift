@@ -20,8 +20,6 @@ public func bestAssumption(in grid: Grid, rules: Rules) -> Assumption? {
     precondition(grid.size == rules.size, "grid.size must equal rules.size")
 
     guard conflicts(in: grid, rules: rules).isEmpty else { return nil }
-    guard grid.cells.contains(Grid.emptyCell) else { return nil }
-
     let layout = BoardLayout(rules: rules)
     let masks = candidateMasks(for: grid, layout: layout)
 
@@ -41,6 +39,7 @@ public func bestAssumption(in grid: Grid, rules: Rules) -> Assumption? {
         }
     }
 
+    // 盘面已满时没有空格，bestCell 为 nil，因此返回 nil。
     guard let cell = bestCell else { return nil }
 
     var candidates: [Int] = []

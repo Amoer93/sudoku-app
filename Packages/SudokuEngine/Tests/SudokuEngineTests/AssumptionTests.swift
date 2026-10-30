@@ -74,6 +74,15 @@ final class AssumptionTests: XCTestCase {
         XCTAssertNil(hint(in: grid, rules: .fiveByFive))
     }
 
+    /// 5×5 无宫：(0,0) 填 1 后，(1,1) 若在 9×9 式的宫中会排除 1，这里候选数仍包含 1。
+    func testFiveByFiveSameAreaKeepsCandidate() throws {
+        let grid = try makeGrid(size: 5, "10000 30200 04000 00000 00000")
+        let assumption = try XCTUnwrap(bestAssumption(in: grid, rules: .fiveByFive))
+        XCTAssertEqual(assumption.target, CellIndex(row: 1, column: 1))
+        XCTAssertEqual(assumption.candidates, [1, 5])
+        XCTAssertNil(hint(in: grid, rules: .fiveByFive))
+    }
+
     // MARK: - 辅助
 
     private func makeGrid(size: Int, _ text: String) throws -> Grid {
