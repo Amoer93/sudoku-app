@@ -242,6 +242,40 @@ final class BoardViewModelTests: XCTestCase {
         XCTAssertEqual(notice, .solved)
     }
 
+    func testRefreshDuringSolveKeepsTheAnswer() async {
+        let solved = filledFour()
+        let engine = SlowSolveEngine(base: ScriptedBoardEngine(solvedGrid: solved))
+        let model = await makeModel(engine: engine)
+        let solving = Task { await model.autoSolve() }
+        // 等到求解真正开始，再在中途刷新解的个数。
+        while await !model.isSolving {
+            await Task.yield()
+        }
+        await model.refreshSolutionCount()
+        await solving.value
+        let grid = await model.grid
+        XCTAssertEqual(grid, solved)
+        let notice = await model.notice
+        XCTAssertEqual(notice, .solved)
+    }
+}
+
+/// 求解时故意慢一点，让测试能在求解中途插入刷新。
+struct SlowSolveEngine: SudokuBoardEngine {
+    var base: ScriptedBoardEngine
+
+    func conflicts(in grid: Grid, rules: Rules) -> Set<CellIndex> {
+        base.conflicts(in: grid, rules: rules)
+    }
+
+    func solve(_ grid: Grid, rules: Rules) -> Grid? {
+        Thread.sleep(forTimeInterval: 0.2)
+        return base.solve(grid, rules: rules)
+    }
+
+    func solutionCount(_ grid: Grid, rules: Rules, limit: Int) -> Int {
+        base.solutionCount(grid, rules: rules, limit: limit)
+    }
 }
 
 @MainActor

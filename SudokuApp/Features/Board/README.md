@@ -12,7 +12,7 @@ P1 的可玩棋盘。源码在 App 目标里的 `SudokuApp/Features/Board/`（�
 
 ## 引擎替身
 
-`main` 上的 `SudokuEngine` 还是 P0 占位。PR #2 把公开接口冻成了下面这组签名，但求解仍是 `fatalError`，所以这里不调用它。
+PR #2 冻结了 `SudokuEngine` 的公开接口，PR #6 已把求解器合入 `main`。App 默认仍用下面的替身，切换步骤见文末。
 
 App 内的 `SudokuBoardEngine` 与冻结接口一致：
 
@@ -32,4 +32,8 @@ App 内的 `SudokuBoardEngine` 与冻结接口一致：
 - 转换前先校验 `grid.size == rules.size` 和 `cells.count == size * size`，不会触发引擎的 precondition。
 - `CellIndex` 行列一一对应，不做下标换算。
 
-引擎求解还是 `fatalError` 的时候，默认引擎仍是 `FixtureBoardEngine()`。求解实现合并后，把 `BoardScreen` / `BoardViewModel` 的默认引擎换成 `EngineBoardAdapter()`，再删掉替身即可。
+求解器已经合入，切换清单：
+
+- 把 `BoardScreen` / `BoardViewModel` 的默认引擎换成 `EngineBoardAdapter()`。
+- 改掉 `BoardCopy` 里写死的「示例」文案（如「已填入示例解。」），多解提示注明是「原题」有多个解。
+- 删掉 `FixtureBoardEngine` 和只给替身用的示例答案。

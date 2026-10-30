@@ -36,13 +36,15 @@ struct EngineBoardAdapter: SudokuBoardEngine {
         guard grid.size == rules.size, grid.cells.count == rules.cellCount else {
             return nil
         }
+        // 拆成两个 guard，避免多行条件的缩进被 SwiftFormat 判错。
         guard let engineRules = try? SudokuEngine.Rules(
             size: rules.size,
             boxRows: rules.boxRows,
             boxCols: rules.boxCols
-        ),
-            let engineGrid = try? SudokuEngine.Grid(size: grid.size, cells: grid.cells)
-        else {
+        ) else {
+            return nil
+        }
+        guard let engineGrid = try? SudokuEngine.Grid(size: grid.size, cells: grid.cells) else {
             return nil
         }
         return (engineGrid, engineRules)

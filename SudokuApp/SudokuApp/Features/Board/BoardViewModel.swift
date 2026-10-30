@@ -180,7 +180,11 @@ final class BoardViewModel {
     }
 
     /// 按当前盘面重新计数。旧请求作废，避免界面停在「正在查看」。
+    /// 自动解题进行中直接跳过：递增 `countGeneration` 会让求解结果被当成过期而丢掉。
     func refreshSolutionCount() async {
+        guard !isSolving else {
+            return
+        }
         scheduleSolutionCount()
         await countTask?.value
     }
@@ -281,6 +285,10 @@ private extension BoardViewModel {
     }
 
     func scheduleSolutionCount() {
+        // 求解中不发起计数，求解结束时 `apply` 会写入原题的解个数。
+        guard !isSolving else {
+            return
+        }
         countTask?.cancel()
         countGeneration += 1
         let generation = countGeneration

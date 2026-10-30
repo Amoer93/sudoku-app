@@ -6,7 +6,7 @@
 - 数字键盘、选中高亮、冲突高亮、撤销、重做、清除当前格、清空自行填入的数字。
 - 首页尺寸入口和「自动解题」。求解放在后台线程，结果回到主线程再改棋盘。
 - 单元测试覆盖宫线、示例题面、撤销栈，以及视图模型只消费引擎返回值。
-- 按 [PR #3 审查](https://github.com/Amoer93/sudoku-app/pull/3#pullrequestreview-5699668084) 改了三处：协议签名对齐 PR #2（`Set<CellIndex>`、`solutionCount` 的 `limit`、会抛错的 `Rules` 初始化、`Grid.cells` 只读）；自动解题只对求解前的盘面计数，输入、撤销、重做、清空会在后台重算；SwiftFormat 的区间空格、import 顺序和缩进。
+- 按 [PR #3 审查](https://github.com/Amoer93/sudoku-app/pull/3#pullrequestreview-5699668084) 改了三处：协议签名对齐 PR #2（`Set<CellIndex>`、`solutionCount` 的 `limit`、会抛错的 `Rules` 初始化、`Grid.cells` 只读）；自动解题只对求解前的盘面计数，输入、撤销、重做、清空会在后台重算；SwiftFormat 的区间空格和 import 顺序。1da0df5 新增的 `EngineBoardAdapter.swift` 多行 guard 仍有缩进错误导致 CI 失败，之后拆成两个 guard 修复，并在本地跑过 `swiftformat --lint .`。
 - `Grid` 的写入方法补了 `mutating`，否则结构体下标在 CI 里编不过。
 
 ## 进行中
