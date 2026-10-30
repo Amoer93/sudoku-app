@@ -92,6 +92,18 @@ final class BoardViewModel {
         return PeerValues.used(in: grid, rules: rules, at: cell)
     }
 
+    /// 自动筛选下，选中的空格 1 到 N 全被禁用，说明前面可能填错了。
+    var hasNoCandidates: Bool {
+        guard isAutoFilterOn, let selectedIndex, !givens.contains(selectedIndex),
+              grid.cells.indices.contains(selectedIndex),
+              grid.cells[selectedIndex] == Grid.emptyCell,
+              rules.size > 0
+        else {
+            return false
+        }
+        return disabledValues.isSuperset(of: Set(1 ... rules.size))
+    }
+
     var canEnter: Bool {
         guard !isSolving, let selectedIndex else {
             return false
@@ -106,6 +118,9 @@ final class BoardViewModel {
         if let text = notice.text {
             return text
         }
+        if hasNoCandidates {
+            return BoardCopy.noCandidates
+        }
         return selectionHint
     }
 
@@ -114,6 +129,9 @@ final class BoardViewModel {
             return false
         }
         if notice.isWarning {
+            return true
+        }
+        if notice == .idle, hasNoCandidates {
             return true
         }
         guard notice == .idle, let selectedIndex else {
@@ -144,6 +162,12 @@ final class BoardViewModel {
     /// 找不到确定格（含盘面已有冲突）时显示「当前无唯一解，请假设。」。
     func showHint() {
         guard !isSolving else {
+            return
+        }
+        // 盘面有冲突时提示没有意义，先让玩家修正
+        guard conflicts.isEmpty else {
+            hintedIndex = nil
+            notice = .hintBlockedByConflicts
             return
         }
         guard let cell = engine.hintCell(in: grid, rules: rules) else {
