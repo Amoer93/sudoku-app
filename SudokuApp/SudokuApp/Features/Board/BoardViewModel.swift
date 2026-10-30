@@ -28,19 +28,19 @@ final class BoardViewModel {
     let rules: Rules
 
     private let engine: any SudokuBoardEngine
-    private let givens: Set<Int>
-    // 下面几个属性要被 BoardViewModel+Layers.swift 读写。Swift 没有跨文件的受限写权限，
-    // 所以只能放宽到 internal（不加 private）；其余属性仍保持 private。
-    var undoStack: [BoardSnapshot] = []
-    var redoStack: [BoardSnapshot] = []
-    var layers: [AssumptionLayer] = []
-    /// 每格是在第几层填的，0 表示确定数字（含题目给定）。
-    var cellDepths: [Int]
+    // 放宽到 internal 只读：拆出去的扩展文件（状态文案、格子状态）要读它；只有 init 会写。
+    let givens: Set<Int>
+    // 下面三个只放宽“读”：Layers 等扩展文件要读，所有写入都在本文件里。
+    private(set) var undoStack: [BoardSnapshot] = []
+    private(set) var redoStack: [BoardSnapshot] = []
+    private(set) var layers: [AssumptionLayer] = []
+    /// 每格是在第几层填的，0 表示确定数字（含题目给定）。只放宽“读”，写入都在本文件里。
+    private(set) var cellDepths: [Int]
     private var countGeneration = 0
     private var countTask: Task<Void, Never>?
 
-    /// 盘面一变，提示高亮就作废。回滚假设层时 Layers 扩展要写它，所以去掉了 private(set)。
-    var grid: Grid {
+    /// 盘面一变，提示高亮就作废。
+    private(set) var grid: Grid {
         didSet {
             hintedIndex = nil
         }
@@ -53,8 +53,7 @@ final class BoardViewModel {
     var isAutoFilterOn = false
     private(set) var conflicts: Set<Int>
     private(set) var solutionCount: Int?
-    /// 回滚假设层时 Layers 扩展要把它重置为 idle，所以去掉了 private(set)。
-    var notice: BoardNotice = .idle
+    private(set) var notice: BoardNotice = .idle
     private(set) var isSolving = false
 
     init(title: String, puzzle: SamplePuzzle, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
@@ -66,103 +65,6 @@ final class BoardViewModel {
         cellDepths = Array(repeating: 0, count: puzzle.givens.cells.count)
         let found = engine.conflicts(in: puzzle.givens, rules: puzzle.rules)
         conflicts = Self.linearSet(found, size: puzzle.rules.size)
-    }
-
-    var cellStates: [BoardCellState] {
-        grid.cells.indices.map { index in
-            state(at: index)
-        }
-    }
-
-    var canUndo: Bool {
-        !undoStack.isEmpty && !isSolving
-    }
-
-    var canRedo: Bool {
-        !redoStack.isEmpty && !isSolving
-    }
-
-    var canClear: Bool {
-        !isSolving && grid.cells.enumerated().contains { index, value in
-            value != Grid.emptyCell && !givens.contains(index)
-        }
-    }
-
-    /// 自动筛选时要禁用的数字。
-    /// 关闭、没选格、选中给定格（整块键盘本来就禁用）时都返回空集合。
-    var disabledValues: Set<Int> {
-        guard isAutoFilterOn, let selectedIndex, !givens.contains(selectedIndex),
-              let cell = cell(at: selectedIndex)
-        else {
-            return []
-        }
-        return PeerValues.used(in: grid, rules: rules, at: cell)
-    }
-
-    /// 自动筛选下，选中的空格 1 到 N 全被禁用，说明前面可能填错了。
-    var hasNoCandidates: Bool {
-        guard isAutoFilterOn, let selectedIndex, !givens.contains(selectedIndex),
-              grid.cells.indices.contains(selectedIndex),
-              grid.cells[selectedIndex] == Grid.emptyCell,
-              rules.size > 0
-        else {
-            return false
-        }
-        return disabledValues.isSuperset(of: Set(1 ... rules.size))
-    }
-
-    var canEnter: Bool {
-        guard !isSolving, let selectedIndex else {
-            return false
-        }
-        return !givens.contains(selectedIndex)
-    }
-
-    var statusText: String {
-        if isSolving {
-            return BoardCopy.solving
-        }
-        if let text = notice.text {
-            return text
-        }
-        if hasNoCandidates {
-            return BoardCopy.noCandidates
-        }
-        return selectionHint
-    }
-
-    var statusIsWarning: Bool {
-        if isSolving {
-            return false
-        }
-        if notice.isWarning {
-            return true
-        }
-        if notice == .idle, hasNoCandidates {
-            return true
-        }
-        guard notice == .idle, let selectedIndex else {
-            return false
-        }
-        return givens.contains(selectedIndex)
-    }
-
-    var solutionCountText: String {
-        guard let solutionCount else {
-            return BoardCopy.checkingSolutions
-        }
-        switch solutionCount {
-        case 0:
-            return BoardCopy.noSolution
-        case 1:
-            return BoardCopy.uniqueSolution
-        default:
-            return BoardCopy.multipleSolutions
-        }
-    }
-
-    var solutionCountIsWarning: Bool {
-        solutionCount == 0
     }
 
     /// 请求提示：选中并高亮确定格，只给位置，绝不填数字。
@@ -187,10 +89,8 @@ final class BoardViewModel {
             showAssumption()
             return
         }
+        // 引擎给出的确定格必在盘面内，线性下标无需再检查
         let index = cell.linearIndex(size: rules.size)
-        guard grid.cells.indices.contains(index) else {
-            return
-        }
         selectedIndex = index
         hintedIndex = index
         notice = .hinted
@@ -323,58 +223,37 @@ private extension BoardViewModel {
         notice = .assumption(assumption.candidates)
     }
 
-    var selectionHint: String {
-        guard let selectedIndex else {
-            return BoardCopy.selectCell
+    /// 撤销退到某层开层点之前时，这一层已经不存在，要把它弹掉（嵌套的层也一样）。
+    /// 重做越过开层点时不会重建这一层，所以重做回来的数字沿用快照里的层深。
+    func dropLayersBeyondUndo() {
+        while let top = layers.last, top.undoCount > undoStack.count {
+            layers.removeLast()
         }
-        if givens.contains(selectedIndex) {
-            return BoardCopy.givenLocked
-        }
-        return BoardCopy.enterDigit
     }
 
-    func state(at index: Int) -> BoardCellState {
-        let size = max(rules.size, 1)
-        return BoardCellState(
-            index: index,
-            row: index / size,
-            column: index % size,
-            value: grid.cells[index],
-            isGiven: givens.contains(index),
-            isSelected: selectedIndex == index,
-            isConflict: conflicts.contains(index),
-            isHinted: hintedIndex == index,
-            layerDepth: layerDepth(at: index),
-            isAssumptionHint: hintedIndex == index && isHintAnAssumption
-        )
+    /// 清空和自动解题会改动整盘，假设层不再有意义：全部丢掉，数字都算确定数字。
+    func clearAllLayers() {
+        layers.removeAll()
+        cellDepths = Array(repeating: 0, count: cellDepths.count)
     }
 
-    func accepts(_ value: Int) -> Bool {
-        if value == Grid.emptyCell {
-            return true
+    /// 撤销/重做恢复的层深可能比当前层数大（那一层已被清空或弹掉），压回当前层数避免出现幽灵层。
+    func clampDepthsToLayers() {
+        let limit = layers.count
+        for index in cellDepths.indices where cellDepths[index] > limit {
+            cellDepths[index] = limit
         }
-        guard rules.size > 0 else {
-            return false
-        }
-        return (1 ... rules.size).contains(value)
     }
 
-    func cell(at index: Int) -> CellIndex? {
-        guard rules.size > 0, grid.cells.indices.contains(index) else {
-            return nil
-        }
-        return CellIndex(linearIndex: index, size: rules.size)
-    }
-
-    func clearedGrid() -> Grid {
-        var next = grid
-        for index in next.cells.indices where !givens.contains(index) {
-            guard let cell = cell(at: index) else {
-                continue
+    /// 变了的格子记成当前层；被清空的格子回到 0 层。
+    func retagDepths(since before: Grid) {
+        for index in grid.cells.indices where grid.cells[index] != before.cells[index] {
+            if grid.cells[index] == Grid.emptyCell {
+                cellDepths[index] = 0
+            } else {
+                cellDepths[index] = layers.count
             }
-            next[cell] = Grid.emptyCell
         }
-        return next
     }
 
     func pushUndo() {
@@ -440,8 +319,33 @@ private extension BoardViewModel {
     }
 }
 
-/// 这两个方法要被 BoardViewModel+Layers.swift 调用，所以不能放在 private 扩展里。
+/// 假设层的写入逻辑。grid、notice 等是 private(set)，只有本文件能写，所以这些方法必须留在这里。
 extension BoardViewModel {
+    /// 开一层新假设，可以嵌套。
+    func startLayer() {
+        guard canStartLayer else {
+            return
+        }
+        layers.append(AssumptionLayer(snapshot: snapshot(), undoCount: undoStack.count))
+    }
+
+    /// 撤回最上面一层：本层改过的格子全部回到开层前的值，本层的撤销记录一并丢掉。
+    func rollbackLayer() {
+        guard !isSolving, let layer = layers.popLast() else {
+            return
+        }
+        grid = layer.snapshot.grid
+        cellDepths = layer.snapshot.depths
+        if undoStack.count > layer.undoCount {
+            undoStack.removeSubrange(layer.undoCount...)
+        }
+        // 重做栈里的盘面可能含本层内容，留着会把已撤回的数字带回来
+        redoStack.removeAll()
+        refreshConflicts()
+        notice = .idle
+        scheduleSolutionCount()
+    }
+
     func refreshConflicts() {
         conflicts = Self.linearSet(engine.conflicts(in: grid, rules: rules), size: rules.size)
     }

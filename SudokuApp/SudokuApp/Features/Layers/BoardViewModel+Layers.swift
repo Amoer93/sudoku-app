@@ -11,8 +11,8 @@ struct AssumptionLayer {
     let undoCount: Int
 }
 
-/// 假设层相关的逻辑。拆到单独文件是为了让 BoardViewModel.swift 满足 SwiftLint 的长度限制。
-/// 扩展在另一个文件里，看不到 private 成员，所以主文件里被用到的属性只放宽到 internal。
+/// 假设层的只读部分。拆到单独文件是为了让 BoardViewModel.swift 满足 SwiftLint 的长度限制。
+/// 所有会写 grid、notice、层和撤销栈的方法（开层、回滚等）都在 BoardViewModel.swift 里。
 extension BoardViewModel {
     /// 当前假设层数，0 表示没有开启假设。
     var currentLayerDepth: Int {
@@ -42,53 +42,6 @@ extension BoardViewModel {
         return grid != top.snapshot.grid || cellDepths != top.snapshot.depths
     }
 
-    /// 开一层新假设，可以嵌套。
-    func startLayer() {
-        guard canStartLayer else {
-            return
-        }
-        layers.append(AssumptionLayer(snapshot: snapshot(), undoCount: undoStack.count))
-    }
-
-    /// 撤回最上面一层：本层改过的格子全部回到开层前的值，本层的撤销记录一并丢掉。
-    func rollbackLayer() {
-        guard !isSolving, let layer = layers.popLast() else {
-            return
-        }
-        grid = layer.snapshot.grid
-        cellDepths = layer.snapshot.depths
-        if undoStack.count > layer.undoCount {
-            undoStack.removeSubrange(layer.undoCount...)
-        }
-        // 重做栈里的盘面可能含本层内容，留着会把已撤回的数字带回来
-        redoStack.removeAll()
-        refreshConflicts()
-        notice = .idle
-        scheduleSolutionCount()
-    }
-
-    /// 撤销退到某层开层点之前时，这一层已经不存在，要把它弹掉（嵌套的层也一样）。
-    /// 重做越过开层点时不会重建这一层，所以重做回来的数字沿用快照里的层深。
-    func dropLayersBeyondUndo() {
-        while let top = layers.last, top.undoCount > undoStack.count {
-            layers.removeLast()
-        }
-    }
-
-    /// 清空和自动解题会改动整盘，假设层不再有意义：全部丢掉，数字都算确定数字。
-    func clearAllLayers() {
-        layers.removeAll()
-        cellDepths = Array(repeating: 0, count: cellDepths.count)
-    }
-
-    /// 撤销/重做恢复的层深可能比当前层数大（那一层已被清空或弹掉），压回当前层数避免出现幽灵层。
-    func clampDepthsToLayers() {
-        let limit = layers.count
-        for index in cellDepths.indices where cellDepths[index] > limit {
-            cellDepths[index] = limit
-        }
-    }
-
     /// 当前高亮的格子是否是「建议假设格」（而不是确定格）。
     var isHintAnAssumption: Bool {
         guard hintedIndex != nil, case .assumption = notice else {
@@ -99,16 +52,5 @@ extension BoardViewModel {
 
     func snapshot() -> BoardSnapshot {
         BoardSnapshot(grid: grid, depths: cellDepths)
-    }
-
-    /// 变了的格子记成当前层；被清空的格子回到 0 层。
-    func retagDepths(since before: Grid) {
-        for index in grid.cells.indices where grid.cells[index] != before.cells[index] {
-            if grid.cells[index] == Grid.emptyCell {
-                cellDepths[index] = 0
-            } else {
-                cellDepths[index] = layers.count
-            }
-        }
     }
 }
