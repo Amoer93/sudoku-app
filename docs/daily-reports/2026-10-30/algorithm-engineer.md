@@ -27,3 +27,27 @@
 
 - 今日大致消耗：中
 - 异常消耗原因（如有）：无
+
+---
+
+## 追加：求解器实现（feat/engine-solver）
+
+### 今日完成
+
+- 实现 `conflicts`、`solve`、`solutionCount`，公开签名没有改。内核在新文件 `SolverCore.swift`。
+- 算法：每格用 `UInt16` 位掩码记候选数；已确定的格子从同伴里消除该数字（唯余）；然后回溯，每次先展开候选最少的格。`solutionCount` 找到 `limit` 个解就停，唯一性检查用 `limit = 2`。
+- `limit <= 0` 时直接返回 0，不再触发 precondition（文档注释已同步）。
+- 新增 `SolverTests.swift`，24 个测试：4×4、5×5、9×9；矛盾已知数；无冲突但无解；多解；4×4 空盘共 288 个解；已知题集；冲突检测；性能。
+- 本机 Swift 6.2 `swift test`：43 个测试全部通过。`swiftformat --lint .` 通过。
+
+### 耗时（debug 构建，`swift test` 默认模式，7 次取中位数）
+
+- inkala-2012（公认很难）：约 12 ms
+- norvig-hard1：约 6 ms
+- 目标是 iPhone 上小于 50ms；debug 构建比 release 慢，都已远低于 50ms。真机数据等 P6 性能检查再测。
+
+### 阻塞问题 / 风险
+
+- 本机没有安装 `swiftlint`，没有在本地跑，靠 CI 检查。
+- 题集里有两道凭记忆写的题实际是多解，已换掉。现在的 4 道题都用 `solutionCount` 验证过是唯一解。
+- 目前只做了"唯余"一种传播，没有"隐性唯一"。现在速度够用，P2 做提示时再加。
