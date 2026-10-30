@@ -180,6 +180,10 @@ struct BoardGridView: View {
         if cell.isConflict {
             return Color.red.opacity(cell.isSelected ? 0.5 : 0.32)
         }
+        if cell.isHinted, cell.isAssumptionHint {
+            // 假设格用青色，和确定格的黄色一眼分得开
+            return Color.teal.opacity(0.4)
+        }
         if cell.isHinted {
             return Color.yellow.opacity(0.45)
         }

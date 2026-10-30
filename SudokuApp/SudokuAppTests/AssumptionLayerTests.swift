@@ -72,6 +72,40 @@ final class AssumptionLayerTests: XCTestCase {
         XCTAssertEqual(model.layerDepth(at: 5), 0)
     }
 
+    func testUndoAfterClearLeavesNoGhostLayerDepth() {
+        let model = makeLayerModel()
+        model.startLayer()
+        fill(model, index: 0, value: 1)
+        model.clearUserEntries()
+        model.undo()
+        XCTAssertEqual(model.grid.cells[0], 1)
+        XCTAssertEqual(model.layerDepth(at: 0), 0)
+    }
+
+    func testUndoAfterAutoSolveLeavesNoGhostLayerDepth() async {
+        let solved = (try? Grid(size: 4, cells: Array(repeating: 1, count: 16))) ?? Grid(rules: .fourByFour)
+        let model = makeLayerModel(engine: ScriptedBoardEngine(solvedGrid: solved))
+        model.startLayer()
+        fill(model, index: 0, value: 1)
+        await model.autoSolve()
+        model.undo()
+        XCTAssertEqual(model.layerDepth(at: 0), 0)
+    }
+
+    func testRedoPastPoppedLayerKeepsDepthWithinCurrentLayers() {
+        let model = makeLayerModel()
+        fill(model, index: 0, value: 1)
+        model.startLayer()
+        fill(model, index: 1, value: 2)
+        model.undo()
+        model.undo()
+        XCTAssertEqual(model.currentLayerDepth, 0)
+        model.redo()
+        model.redo()
+        XCTAssertEqual(model.grid.cells[1], 2)
+        XCTAssertLessThanOrEqual(model.layerDepth(at: 1), model.currentLayerDepth)
+    }
+
     func testAccessibilityLabelMentionsLayerDepth() {
         let model = makeLayerModel()
         model.startLayer()

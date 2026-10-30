@@ -180,7 +180,7 @@ final class BoardViewModel {
         // 盘面已填满，没有可提示的格子，也不必说「无唯一解」
         guard grid.cells.contains(Grid.emptyCell) else {
             hintedIndex = nil
-            notice = .idle
+            notice = .solved
             return
         }
         guard let cell = engine.hintCell(in: grid, rules: rules) else {
@@ -316,12 +316,8 @@ private extension BoardViewModel {
             notice = .noHint
             return
         }
+        // 行列都在范围内，线性下标必然落在盘面内
         let index = cell.linearIndex(size: size)
-        guard grid.cells.indices.contains(index) else {
-            hintedIndex = nil
-            notice = .noHint
-            return
-        }
         selectedIndex = index
         hintedIndex = index
         notice = .assumption(assumption.candidates)
@@ -348,7 +344,8 @@ private extension BoardViewModel {
             isSelected: selectedIndex == index,
             isConflict: conflicts.contains(index),
             isHinted: hintedIndex == index,
-            layerDepth: layerDepth(at: index)
+            layerDepth: layerDepth(at: index),
+            isAssumptionHint: hintedIndex == index && isHintAnAssumption
         )
     }
 
@@ -392,6 +389,7 @@ private extension BoardViewModel {
         destination.append(snapshot())
         grid = replacement.grid
         cellDepths = replacement.depths
+        clampDepthsToLayers()
         refreshConflicts()
         notice = .idle
         scheduleSolutionCount()

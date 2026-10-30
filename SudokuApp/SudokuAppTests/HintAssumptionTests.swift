@@ -42,7 +42,19 @@ final class HintAssumptionTests: XCTestCase {
         XCTAssertEqual(model.selectedIndex, selectedBefore)
     }
 
-    func testFullBoardShowsNoMessage() throws {
+    func testAssumptionHintIsFlaggedButCertainHintIsNot() {
+        let model = makeModel(blankPuzzle(), engine: EngineBoardAdapter())
+        model.showHint()
+        XCTAssertTrue(model.cellStates[0].isHinted)
+        XCTAssertTrue(model.cellStates[0].isAssumptionHint)
+        XCTAssertFalse(model.cellStates[1].isAssumptionHint)
+        XCTAssertTrue(model.cellStates[0].accessibilityLabel.contains("建议假设格"))
+        // 选别的格后高亮消失，标记也跟着消失
+        model.select(index: 1)
+        XCTAssertFalse(model.cellStates[0].isAssumptionHint)
+    }
+
+    func testFullSolvedBoardShowsSolvedNotice() throws {
         let solved = try Grid(size: 4, cells: [
             1, 2, 3, 4,
             3, 4, 1, 2,
@@ -52,7 +64,7 @@ final class HintAssumptionTests: XCTestCase {
         let full = SamplePuzzle(rules: .fourByFour, givens: solved, solution: solved)
         let model = makeModel(full, engine: EngineBoardAdapter())
         model.showHint()
-        XCTAssertEqual(model.notice, .idle)
+        XCTAssertEqual(model.notice, .solved)
         XCTAssertNil(model.hintedIndex)
         XCTAssertNotEqual(model.statusText, BoardCopy.noHint)
     }
