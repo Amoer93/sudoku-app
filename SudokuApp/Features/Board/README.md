@@ -35,6 +35,6 @@ App 内的 `SudokuBoardEngine` 与冻结接口一致：
 切换已完成：
 
 - [x] `BoardScreen` / `BoardViewModel` 的默认引擎换成 `EngineBoardAdapter()`。
-- [x] `BoardCopy` 去掉「示例」字样，解的个数提示注明是「原题」。
+- [x] `BoardCopy` 去掉「示例」字样，解的个数提示注明是「当前盘面」（计数包含玩家填入的数字，与上面的说明一致）。
 - [x] `FixtureBoardEngine` 不删，只在测试和预览里显式传入。内置题目的答案保留给替身和测试核对。
 - [x] 首页入口给 `BoardScreen` 加了 `.id(preset)`，换题时模型跟着重建。

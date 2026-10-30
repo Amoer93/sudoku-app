@@ -9,7 +9,7 @@ private struct SolveOutcome: Sendable {
     let count: Int
 }
 
-/// 对求解前的盘面计数。不要把填满的结果再送进 `solutionCount`，否则多解题会变成 1。
+/// 对求解前的当前盘面（给定数字 + 玩家填入）计数。不要把填满的结果再送进 `solutionCount`，否则多解题会变成 1。
 private func makeSolveOutcome(
     engine: any SudokuBoardEngine,
     grid: Grid,
@@ -285,7 +285,7 @@ private extension BoardViewModel {
     }
 
     func scheduleSolutionCount() {
-        // 求解中不发起计数，求解结束时 `apply` 会写入原题的解个数。
+        // 求解中不发起计数，求解结束时 `apply` 会写入求解前盘面的解个数。
         guard !isSolving else {
             return
         }
