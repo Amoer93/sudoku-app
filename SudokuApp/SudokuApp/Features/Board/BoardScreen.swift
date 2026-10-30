@@ -37,6 +37,7 @@ private struct BoardContentView: View {
                 status
                 board
                 controls
+                layerControls
                 solveButton
                 Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
                     .accessibilityHint(BoardCopy.autoFilterHint)
@@ -123,6 +124,34 @@ private struct BoardContentView: View {
                     model.showHint()
                 }
             )
+        }
+    }
+
+    private var layerControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(BoardCopy.layerStatus(model.currentLayerDepth))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                BoardActionButton(
+                    title: BoardCopy.startLayer,
+                    systemImage: "square.3.layers.3d",
+                    hint: BoardCopy.startLayerHint,
+                    isEnabled: !model.isSolving,
+                    action: {
+                        model.startLayer()
+                    }
+                )
+                BoardActionButton(
+                    title: BoardCopy.rollbackLayer,
+                    systemImage: "arrow.uturn.backward.circle",
+                    hint: BoardCopy.rollbackLayerHint,
+                    isEnabled: model.canRollbackLayer,
+                    action: {
+                        model.rollbackLayer()
+                    }
+                )
+            }
         }
     }
 
