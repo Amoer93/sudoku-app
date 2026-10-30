@@ -1,4 +1,7 @@
 @testable import SudokuApp
+// 只按需导入一个函数：显式声明依赖 SudokuEngine，
+// 又不会把它的 Grid/Rules 引进来和 App 的同名类型冲突。
+import func SudokuEngine.solutionCount
 import XCTest
 
 /// 只测转换，不调用引擎（引擎求解还是 fatalError）。
