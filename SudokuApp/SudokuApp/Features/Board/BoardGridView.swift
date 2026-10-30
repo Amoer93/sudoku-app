@@ -180,6 +180,9 @@ struct BoardGridView: View {
         if cell.isConflict {
             return Color.red.opacity(cell.isSelected ? 0.5 : 0.32)
         }
+        if cell.isHinted {
+            return Color.yellow.opacity(0.45)
+        }
         if cell.isSelected {
             return Color.accentColor.opacity(0.28)
         }

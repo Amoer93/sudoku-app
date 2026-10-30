@@ -34,7 +34,15 @@ final class BoardViewModel {
     private var countGeneration = 0
     private var countTask: Task<Void, Never>?
 
-    private(set) var grid: Grid
+    /// 盘面一变，提示高亮就作废。
+    private(set) var grid: Grid {
+        didSet {
+            hintedIndex = nil
+        }
+    }
+
+    /// 提示高亮的格子。用户选别的格、填数、撤销、清空、自动解题后都会清掉。
+    private(set) var hintedIndex: Int?
     private(set) var selectedIndex: Int?
     /// 自动筛选模式。默认关闭，关闭时键盘行为和以前完全一样。
     var isAutoFilterOn = false
@@ -132,10 +140,31 @@ final class BoardViewModel {
         solutionCount == 0
     }
 
+    /// 请求提示：选中并高亮确定格，只给位置，绝不填数字。
+    /// 找不到确定格（含盘面已有冲突）时显示「当前无唯一解，请假设。」。
+    func showHint() {
+        guard !isSolving else {
+            return
+        }
+        guard let cell = engine.hintCell(in: grid, rules: rules) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        let index = cell.linearIndex(size: rules.size)
+        guard grid.cells.indices.contains(index) else {
+            return
+        }
+        selectedIndex = index
+        hintedIndex = index
+        notice = .hinted
+    }
+
     func select(index: Int) {
         guard !isSolving, grid.cells.indices.contains(index) else {
             return
         }
+        hintedIndex = nil
         if selectedIndex == index {
             selectedIndex = nil
         } else {
@@ -249,7 +278,8 @@ private extension BoardViewModel {
             value: grid.cells[index],
             isGiven: givens.contains(index),
             isSelected: selectedIndex == index,
-            isConflict: conflicts.contains(index)
+            isConflict: conflicts.contains(index),
+            isHinted: hintedIndex == index
         )
     }
 

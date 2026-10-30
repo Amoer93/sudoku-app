@@ -114,6 +114,15 @@ private struct BoardContentView: View {
                     model.clearUserEntries()
                 }
             )
+            BoardActionButton(
+                title: BoardCopy.hint,
+                systemImage: "lightbulb",
+                hint: BoardCopy.hintHint,
+                isEnabled: !model.isSolving,
+                action: {
+                    model.showHint()
+                }
+            )
         }
     }
 

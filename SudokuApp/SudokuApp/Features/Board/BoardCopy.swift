@@ -19,6 +19,10 @@ enum BoardCopy {
     static let undoHint = "回到上一步"
     static let redoHint = "恢复刚才撤销的填写"
     static let clearAllHint = "清除你填的数字，题目保留"
+    static let hint = "提示"
+    static let hintHint = "高亮一个现在就能确定的格子，不会填数字"
+    static let noHint = "当前无唯一解，请假设。"
+    static let hinted = "提示：高亮的这一格现在就能确定。"
     static let clearCellHint = "清除选中的格子"
     static let autoFilter = "自动筛选"
     static let autoFilterHint = "打开后，同行、同列、同宫已有的数字会变灰，不能点"
@@ -32,6 +36,8 @@ enum BoardNotice: Equatable {
     case solved
     case unsolvable
     case cleared
+    case hinted
+    case noHint
 
     var text: String? {
         switch self {
@@ -45,6 +51,10 @@ enum BoardNotice: Equatable {
             return BoardCopy.unsolvable
         case .cleared:
             return BoardCopy.cleared
+        case .hinted:
+            return BoardCopy.hinted
+        case .noHint:
+            return BoardCopy.noHint
         }
     }
 
@@ -52,7 +62,7 @@ enum BoardNotice: Equatable {
         switch self {
         case .givenLocked, .unsolvable:
             return true
-        case .idle, .solved, .cleared:
+        case .idle, .solved, .cleared, .hinted, .noHint:
             return false
         }
     }
