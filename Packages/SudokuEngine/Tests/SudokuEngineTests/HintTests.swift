@@ -5,129 +5,85 @@ final class HintTests: XCTestCase {
     // MARK: - 裸单
 
     func testNakedSingleInRow() throws {
-        let grid = try makeGrid(size: 4, "1230 0000 0000 0000")
-        let hint = try XCTUnwrap(hint(in: grid, rules: .fourByFour))
-
-        XCTAssertEqual(hint.target, CellIndex(row: 0, column: 3))
-        XCTAssertEqual(hint.value, 4)
-        assertNakedSingle(hint, expectedUnits: [.row(0), .column(3), .box(1)])
+        try assertHint("1230 0000 0000 0000", rules: .fourByFour, at: (0, 3), value: 4,
+                       .nakedSingle(reasonUnits: [.row(0), .column(3), .box(1)]))
     }
 
     func testNakedSingleInColumn() throws {
-        let grid = try makeGrid(
-            size: 9,
-            "100000000 200000000 300000000 400000000 500000000 600000000 700000000 800000000 000000000"
-        )
-        let hint = try XCTUnwrap(hint(in: grid, rules: .nineByNine))
-
-        XCTAssertEqual(hint.target, CellIndex(row: 8, column: 0))
-        XCTAssertEqual(hint.value, 9)
-        assertNakedSingle(hint, expectedUnits: [.row(8), .column(0), .box(6)])
+        let text = "100000000 200000000 300000000 400000000 500000000 600000000 700000000 800000000 000000000"
+        try assertHint(text, rules: .nineByNine, at: (8, 0), value: 9,
+                       .nakedSingle(reasonUnits: [.row(8), .column(0), .box(6)]))
     }
 
     func testNakedSingleInBox() throws {
-        let grid = try makeGrid(size: 9, "123000000 456000000 780000000 000000000 000000000 000000000 000000000 000000000 000000000")
-        let hint = try XCTUnwrap(hint(in: grid, rules: .nineByNine))
+        let text = "123000000 456000000 780000000" + String(repeating: " 000000000", count: 6)
+        try assertHint(text, rules: .nineByNine, at: (2, 2), value: 9,
+                       .nakedSingle(reasonUnits: [.row(2), .column(2), .box(0)]))
+    }
 
-        XCTAssertEqual(hint.target, CellIndex(row: 2, column: 2))
-        XCTAssertEqual(hint.value, 9)
-        assertNakedSingle(hint, expectedUnits: [.row(2), .column(2), .box(0)])
+    func testNakedSingleFiveByFive() throws {
+        try assertHint("12340 00000 00000 00000 00000", rules: .fiveByFive, at: (0, 4), value: 5,
+                       .nakedSingle(reasonUnits: [.row(0), .column(4)]))
     }
 
     // MARK: - 隐性唯一
 
+    /// 第 0 行只有 (0,0) 能填 9。
     func testHiddenSingleInRow() throws {
-        let grid = try makeGrid(
-            size: 9,
-            "000000000 000900000 000000900 090000000 000090000 000000090 009000000 000009000 000000009"
-        )
-        let hint = try XCTUnwrap(hint(in: grid, rules: .nineByNine))
-
-        XCTAssertEqual(hint.target, CellIndex(row: 0, column: 0))
-        XCTAssertEqual(hint.value, 9)
-        assertHiddenSingle(hint, expectedUnit: .row(0))
+        let text = "000000000 000900000 000000900 090000000 000090000 000000090 009000000 000009000 000000009"
+        try assertHint(text, rules: .nineByNine, at: (0, 0), value: 9, .hiddenSingle(unit: .row(0)))
     }
 
+    /// 第 3 列只有 (3,3) 能填 7；第 3 行中 7 仍有多个候选格。
     func testHiddenSingleInColumn() throws {
-        let grid = try makeGrid(size: 4, "0400 0040 0004 0000")
-        let hint = try XCTUnwrap(hint(in: grid, rules: .fourByFour))
-
-        XCTAssertEqual(hint.target, CellIndex(row: 3, column: 0))
-        XCTAssertEqual(hint.value, 4)
-        assertHiddenSingle(hint, expectedUnit: .row(3))
+        let text = "000070000 000000000 000000000 000000003 000800000 700000000 000007000 000000000 000000000"
+        try assertHint(text, rules: .nineByNine, at: (3, 3), value: 7, .hiddenSingle(unit: .column(3)))
     }
 
+    /// 第 0 宫只有 (0,0) 能填 5；所在行、列中 5 都不唯一。
     func testHiddenSingleInBox() throws {
-        // 在 4×4 的标准规格下，这个宫的隐性唯一也同时是行隐性唯一；
-        // 算法按行、列、宫顺序扫描，因此返回的是行单元。
-        let grid = try makeGrid(size: 4, "0004 0000 4000 0000")
-        let hint = try XCTUnwrap(hint(in: grid, rules: .fourByFour))
-
-        XCTAssertEqual(hint.target, CellIndex(row: 1, column: 1))
-        XCTAssertEqual(hint.value, 4)
-        assertHiddenSingle(hint, expectedUnit: .row(1))
+        let text = "030000010 000105000 190000000 000000000 000000000 000000000 000000000 000000000 005080000"
+        try assertHint(text, rules: .nineByNine, at: (0, 0), value: 5, .hiddenSingle(unit: .box(0)))
     }
 
-    // MARK: - 裸单优先于隐性唯一
+    /// 第 8 宫只有 (8,7) 能填 7。
+    func testHiddenSingleInNonZeroBox() throws {
+        let text = "000000000 000000000 000000000 050060000 000000700 000000000 000000084 007000000 000000009"
+        try assertHint(text, rules: .nineByNine, at: (8, 7), value: 7, .hiddenSingle(unit: .box(8)))
+    }
 
-    func testNakedSingleTakesPriority() throws {
-        let grid = try makeGrid(size: 4, "1230 0000 0000 0000")
-        let hint = try XCTUnwrap(hint(in: grid, rules: .fourByFour))
-
-        if case .nakedSingle = hint.technique {
-            // 期望：裸单优先返回。
-        } else {
-            XCTFail("expected naked single, got \(hint.technique)")
-        }
+    /// 5×5 无宫：第 3 列只有 (4,3) 能填 2。
+    func testHiddenSingleInColumnFiveByFive() throws {
+        try assertHint("00040 00010 00200 20000 00000", rules: .fiveByFive, at: (4, 3), value: 2,
+                       .hiddenSingle(unit: .column(3)))
     }
 
     // MARK: - 无提示场景
 
-    func testNoHintOnEmptyFourByFour() {
-        XCTAssertNil(hint(in: Grid(rules: .fourByFour), rules: .fourByFour))
-    }
-
-    func testNoHintOnEmptyFiveByFive() {
-        XCTAssertNil(hint(in: Grid(rules: .fiveByFive), rules: .fiveByFive))
-    }
-
-    func testNoHintOnEmptyNineByNine() {
-        XCTAssertNil(hint(in: Grid(rules: .nineByNine), rules: .nineByNine))
+    func testNoHintOnEmptyGrids() {
+        for rules in [Rules.fourByFour, .fiveByFive, .nineByNine] {
+            XCTAssertNil(hint(in: Grid(rules: rules), rules: rules))
+        }
     }
 
     func testNoHintOnCompletedGrid() throws {
-        let grid = try makeGrid(size: 4, "1234 3412 2341 4123")
-        XCTAssertNil(hint(in: grid, rules: .fourByFour))
+        XCTAssertNil(hint(in: try makeGrid(size: 4, "1234 3412 2341 4123"), rules: .fourByFour))
     }
 
     func testNoHintWhenConflictsExist() throws {
-        let grid = try makeGrid(size: 4, "1001 0000 0000 0000")
-        XCTAssertNil(hint(in: grid, rules: .fourByFour))
+        XCTAssertNil(hint(in: try makeGrid(size: 4, "1001 0000 0000 0000"), rules: .fourByFour))
     }
 
-    // MARK: - 5×5 无宫
-
-    func testFiveByFiveHasNoBoxUnit() throws {
-        let grid = try makeGrid(size: 5, "00000 05000 00500 00050 00005")
-        let hint = try XCTUnwrap(hint(in: grid, rules: .fiveByFive))
-
-        XCTAssertEqual(hint.target, CellIndex(row: 0, column: 0))
-        XCTAssertEqual(hint.value, 5)
-        assertHiddenSingle(hint, expectedUnit: .row(0))
-
-        // 无论裸单还是隐性唯一，都不应出现宫单元。
-        switch hint.technique {
-        case let .nakedSingle(units):
-            XCTAssertFalse(units.contains(where: { if case .box = $0 { return true } else { return false } }))
-        case let .hiddenSingle(unit):
-            if case .box = unit { XCTFail("5×5 should not produce a box unit") }
-        }
+    /// 某格没有候选数时，盘面尚未出现直接冲突，但应返回 nil。
+    func testNoHintWhenCellHasNoCandidates() throws {
+        XCTAssertNil(hint(in: try makeGrid(size: 4, "0040 0000 3401 0023"), rules: .fourByFour))
     }
 
     // MARK: - 纯函数
 
     func testHintDoesNotMutateGrid() throws {
-        let grid = try makeGrid(size: 9, Self.easyPuzzle)
+        let text = "003020600 900305001 001806400 008102900 700000008 006708200 002609500 800203009 005010300"
+        let grid = try makeGrid(size: 9, text)
         let copy = grid
         _ = hint(in: grid, rules: .nineByNine)
         XCTAssertEqual(grid, copy)
@@ -136,33 +92,27 @@ final class HintTests: XCTestCase {
     // MARK: - 辅助
 
     private func makeGrid(size: Int, _ text: String) throws -> Grid {
-        var cells: [Int] = []
-        for character in text where !character.isWhitespace {
-            if character == "." {
-                cells.append(0)
-            } else {
-                cells.append(try XCTUnwrap(character.wholeNumberValue))
-            }
-        }
+        let cells = try text.filter { !$0.isWhitespace }.map { try XCTUnwrap($0.wholeNumberValue) }
         return try Grid(size: size, cells: cells)
     }
 
-    private func assertNakedSingle(_ hint: Hint, expectedUnits: [ConstraintUnit], file: StaticString = #filePath, line: UInt = #line) {
-        guard case let .nakedSingle(units) = hint.technique else {
-            XCTFail("expected naked single, got \(hint.technique)", file: file, line: line)
-            return
+    private func assertHint(
+        _ text: String,
+        rules: Rules,
+        at cell: (row: Int, column: Int),
+        value: Int,
+        _ technique: HintTechnique,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let grid = try makeGrid(size: rules.size, text)
+        let result = try XCTUnwrap(hint(in: grid, rules: rules), file: file, line: line)
+        XCTAssertEqual(result.target, CellIndex(row: cell.row, column: cell.column), file: file, line: line)
+        XCTAssertEqual(result.value, value, file: file, line: line)
+        if case let .nakedSingle(actual) = result.technique, case let .nakedSingle(expected) = technique {
+            XCTAssertEqual(Set(actual), Set(expected), file: file, line: line)
+        } else {
+            XCTAssertEqual(result.technique, technique, file: file, line: line)
         }
-        XCTAssertEqual(Set(units), Set(expectedUnits), file: file, line: line)
     }
-
-    private func assertHiddenSingle(_ hint: Hint, expectedUnit: ConstraintUnit, file: StaticString = #filePath, line: UInt = #line) {
-        guard case let .hiddenSingle(unit) = hint.technique else {
-            XCTFail("expected hidden single, got \(hint.technique)", file: file, line: line)
-            return
-        }
-        XCTAssertEqual(unit, expectedUnit, file: file, line: line)
-    }
-
-    private static let easyPuzzle =
-        "003020600 900305001 001806400 008102900 700000008 006708200 002609500 800203009 005010300"
 }
