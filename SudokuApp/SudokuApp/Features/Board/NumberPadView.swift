@@ -4,6 +4,8 @@ import SwiftUI
 struct NumberPadView: View {
     let size: Int
     let isEnabled: Bool
+    /// 自动筛选禁用的数字，变灰且不能点。
+    var disabledDigits: Set<Int> = []
     let onDigit: (Int) -> Void
     let onClear: () -> Void
 
@@ -23,6 +25,7 @@ struct NumberPadView: View {
                         onDigit(digit)
                     }
                     .buttonStyle(PadButtonStyle())
+                    .disabled(disabledDigits.contains(digit))
                     .accessibilityLabel("数字 \(digit)")
                 }
             }
@@ -41,13 +44,16 @@ struct NumberPadView: View {
 
 /// 键盘按钮。按下时加深底色，给一个明确的点按反馈。
 private struct PadButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.title3.weight(.semibold))
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
+            .opacity(isEnabled ? 1 : 0.5)
             .background(background(isPressed: configuration.isPressed), in: RoundedRectangle(cornerRadius: 8))
     }
 

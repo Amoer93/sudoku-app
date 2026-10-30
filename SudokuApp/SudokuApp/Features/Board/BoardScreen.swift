@@ -29,7 +29,7 @@ struct BoardScreen: View {
 
 /// 棋盘主体，持有已经创建好的 ViewModel。
 private struct BoardContentView: View {
-    let model: BoardViewModel
+    @Bindable var model: BoardViewModel
 
     var body: some View {
         ScrollView {
@@ -38,9 +38,12 @@ private struct BoardContentView: View {
                 board
                 controls
                 solveButton
+                Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
+                    .accessibilityHint(BoardCopy.autoFilterHint)
                 NumberPadView(
                     size: model.rules.size,
                     isEnabled: model.canEnter,
+                    disabledDigits: model.disabledValues,
                     onDigit: { digit in
                         model.enter(digit)
                     },

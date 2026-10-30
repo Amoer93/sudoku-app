@@ -20,6 +20,8 @@ enum BoardCopy {
     static let redoHint = "恢复刚才撤销的填写"
     static let clearAllHint = "清除你填的数字，题目保留"
     static let clearCellHint = "清除选中的格子"
+    static let autoFilter = "自动筛选"
+    static let autoFilterHint = "打开后，同行、同列、同宫已有的数字会变灰，不能点"
     static let invalidSize = "棋盘尺寸无效"
 }
 
