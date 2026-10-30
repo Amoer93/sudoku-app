@@ -12,4 +12,14 @@ protocol SudokuBoardEngine: Sendable {
 
     /// `limit` 是最多计数。唯一性检查传 2：0 无解，1 唯一，2 表示至少两个。
     func solutionCount(_ grid: Grid, rules: Rules, limit: Int) -> Int
+
+    /// 下一个确定格的位置（裸单或隐性唯一）。只给位置，不给数字；找不到返回 nil。
+    func hintCell(in grid: Grid, rules: Rules) -> CellIndex?
+}
+
+extension SudokuBoardEngine {
+    /// 默认没有提示能力，替身和测试引擎不用各自实现。
+    func hintCell(in _: Grid, rules _: Rules) -> CellIndex? {
+        nil
+    }
 }

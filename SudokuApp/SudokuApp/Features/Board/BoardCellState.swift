@@ -7,6 +7,8 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
     let isGiven: Bool
     let isSelected: Bool
     let isConflict: Bool
+    /// 提示高亮的格子。
+    var isHinted = false
 
     var id: Int {
         index
@@ -30,6 +32,9 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
         }
         if isConflict {
             notes.append("冲突")
+        }
+        if isHinted {
+            notes.append("提示格")
         }
         if isSelected {
             notes.append("已选中")

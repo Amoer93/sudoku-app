@@ -31,6 +31,16 @@ struct EngineBoardAdapter: SudokuBoardEngine {
         return SudokuEngine.solutionCount(engineGrid, rules: engineRules, limit: limit)
     }
 
+    func hintCell(in grid: Grid, rules: Rules) -> CellIndex? {
+        guard let (engineGrid, engineRules) = Self.convert(grid, rules),
+              let hint = SudokuEngine.hint(in: engineGrid, rules: engineRules)
+        else {
+            return nil
+        }
+        // 只取位置，提示的数字不交给界面
+        return CellIndex(row: hint.target.row, column: hint.target.column)
+    }
+
     /// 转换并校验 `grid.size == rules.size`、`cells.count == size * size`。失败返回 nil。
     static func convert(_ grid: Grid, _ rules: Rules) -> (SudokuEngine.Grid, SudokuEngine.Rules)? {
         guard grid.size == rules.size, grid.cells.count == rules.cellCount else {
