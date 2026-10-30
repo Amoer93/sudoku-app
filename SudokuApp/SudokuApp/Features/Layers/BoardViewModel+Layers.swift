@@ -50,6 +50,22 @@ extension BoardViewModel {
         return true
     }
 
+    /// 撤销/重做恢复的层深可能比当前层数大（那一层已被清空或弹掉），压回当前层数避免出现幽灵层。
+    func clampDepthsToLayers() {
+        let limit = layers.count
+        for index in cellDepths.indices where cellDepths[index] > limit {
+            cellDepths[index] = limit
+        }
+    }
+
+    /// 当前高亮的格子是否是「建议假设格」（而不是确定格）。
+    var isHintAnAssumption: Bool {
+        guard hintedIndex != nil, case .assumption = notice else {
+            return false
+        }
+        return true
+    }
+
     func snapshot() -> BoardSnapshot {
         BoardSnapshot(grid: grid, depths: cellDepths)
     }
