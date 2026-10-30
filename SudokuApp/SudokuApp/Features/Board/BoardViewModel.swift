@@ -36,6 +36,8 @@ final class BoardViewModel {
 
     private(set) var grid: Grid
     private(set) var selectedIndex: Int?
+    /// 自动筛选模式。默认关闭，关闭时键盘行为和以前完全一样。
+    var isAutoFilterOn = false
     private(set) var conflicts: Set<Int>
     private(set) var solutionCount: Int?
     private(set) var notice: BoardNotice = .idle
@@ -69,6 +71,17 @@ final class BoardViewModel {
         !isSolving && grid.cells.enumerated().contains { index, value in
             value != Grid.emptyCell && !givens.contains(index)
         }
+    }
+
+    /// 自动筛选时要禁用的数字。
+    /// 关闭、没选格、选中给定格（整块键盘本来就禁用）时都返回空集合。
+    var disabledValues: Set<Int> {
+        guard isAutoFilterOn, let selectedIndex, !givens.contains(selectedIndex),
+              let cell = cell(at: selectedIndex)
+        else {
+            return []
+        }
+        return PeerValues.used(in: grid, rules: rules, at: cell)
     }
 
     var canEnter: Bool {
@@ -143,6 +156,10 @@ final class BoardViewModel {
             return
         }
         guard grid[cell] != value else {
+            return
+        }
+        // 被筛掉的数字不写入，和键盘上变灰保持一致
+        guard !disabledValues.contains(value) else {
             return
         }
         pushUndo()
