@@ -89,10 +89,8 @@ final class BoardViewModel {
             showAssumption()
             return
         }
+        // 引擎给出的确定格必在盘面内，线性下标无需再检查
         let index = cell.linearIndex(size: rules.size)
-        guard grid.cells.indices.contains(index) else {
-            return
-        }
         selectedIndex = index
         hintedIndex = index
         notice = .hinted

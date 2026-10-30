@@ -103,7 +103,7 @@ final class AssumptionLayerTests: XCTestCase {
         model.redo()
         model.redo()
         XCTAssertEqual(model.grid.cells[1], 2)
-        XCTAssertLessThanOrEqual(model.layerDepth(at: 1), model.currentLayerDepth)
+        XCTAssertEqual(model.layerDepth(at: 1), 0)
     }
 
     func testAccessibilityLabelMentionsLayerDepth() {
