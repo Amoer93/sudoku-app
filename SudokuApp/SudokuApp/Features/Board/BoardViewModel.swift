@@ -29,13 +29,18 @@ final class BoardViewModel {
 
     private let engine: any SudokuBoardEngine
     private let givens: Set<Int>
-    private var undoStack: [Grid] = []
-    private var redoStack: [Grid] = []
+    // 下面几个属性要被 BoardViewModel+Layers.swift 读写。Swift 没有跨文件的受限写权限，
+    // 所以只能放宽到 internal（不加 private）；其余属性仍保持 private。
+    var undoStack: [BoardSnapshot] = []
+    var redoStack: [BoardSnapshot] = []
+    var layers: [AssumptionLayer] = []
+    /// 每格是在第几层填的，0 表示确定数字（含题目给定）。
+    var cellDepths: [Int]
     private var countGeneration = 0
     private var countTask: Task<Void, Never>?
 
-    /// 盘面一变，提示高亮就作废。
-    private(set) var grid: Grid {
+    /// 盘面一变，提示高亮就作废。回滚假设层时 Layers 扩展要写它，所以去掉了 private(set)。
+    var grid: Grid {
         didSet {
             hintedIndex = nil
         }
@@ -48,7 +53,8 @@ final class BoardViewModel {
     var isAutoFilterOn = false
     private(set) var conflicts: Set<Int>
     private(set) var solutionCount: Int?
-    private(set) var notice: BoardNotice = .idle
+    /// 回滚假设层时 Layers 扩展要把它重置为 idle，所以去掉了 private(set)。
+    var notice: BoardNotice = .idle
     private(set) var isSolving = false
 
     init(title: String, puzzle: SamplePuzzle, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
@@ -57,6 +63,7 @@ final class BoardViewModel {
         self.engine = engine
         grid = puzzle.givens
         givens = Self.givenIndexes(in: puzzle.givens)
+        cellDepths = Array(repeating: 0, count: puzzle.givens.cells.count)
         let found = engine.conflicts(in: puzzle.givens, rules: puzzle.rules)
         conflicts = Self.linearSet(found, size: puzzle.rules.size)
     }
@@ -189,32 +196,6 @@ final class BoardViewModel {
         notice = .hinted
     }
 
-    /// 没有确定格时改为推荐一个假设格；只选中并高亮，不改盘面。
-    private func showAssumption() {
-        guard let assumption = engine.assumptionCell(in: grid, rules: rules) else {
-            hintedIndex = nil
-            notice = .noHint
-            return
-        }
-        // 先检查行列范围，因为 linearIndex 越界会直接崩溃
-        let cell = assumption.cell
-        let size = rules.size
-        guard (0 ..< size).contains(cell.row), (0 ..< size).contains(cell.column) else {
-            hintedIndex = nil
-            notice = .noHint
-            return
-        }
-        let index = cell.linearIndex(size: size)
-        guard grid.cells.indices.contains(index) else {
-            hintedIndex = nil
-            notice = .noHint
-            return
-        }
-        selectedIndex = index
-        hintedIndex = index
-        notice = .assumption(assumption.candidates)
-    }
-
     func select(index: Int) {
         guard !isSolving, grid.cells.indices.contains(index) else {
             return
@@ -246,8 +227,10 @@ final class BoardViewModel {
         guard !disabledValues.contains(value) else {
             return
         }
+        let before = grid
         pushUndo()
         grid[cell] = value
+        retagDepths(since: before)
         refreshConflicts()
         notice = .idle
         scheduleSolutionCount()
@@ -265,8 +248,11 @@ final class BoardViewModel {
         guard next != grid else {
             return
         }
+        let before = grid
         pushUndo()
         grid = next
+        retagDepths(since: before)
+        clearAllLayers()
         refreshConflicts()
         notice = .cleared
         scheduleSolutionCount()
@@ -274,6 +260,7 @@ final class BoardViewModel {
 
     func undo() {
         move(from: &undoStack, onto: &redoStack)
+        dropLayersBeyondUndo()
     }
 
     func redo() {
@@ -314,6 +301,32 @@ final class BoardViewModel {
 
 /// 格子、撤销和求解的具体步骤。拆出来是为了让主类型保持短小。
 private extension BoardViewModel {
+    /// 没有确定格时改为推荐一个假设格；只选中并高亮，不改盘面。
+    func showAssumption() {
+        guard let assumption = engine.assumptionCell(in: grid, rules: rules) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        // 先检查行列范围，因为 linearIndex 越界会直接崩溃
+        let cell = assumption.cell
+        let size = rules.size
+        guard (0 ..< size).contains(cell.row), (0 ..< size).contains(cell.column) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        let index = cell.linearIndex(size: size)
+        guard grid.cells.indices.contains(index) else {
+            hintedIndex = nil
+            notice = .noHint
+            return
+        }
+        selectedIndex = index
+        hintedIndex = index
+        notice = .assumption(assumption.candidates)
+    }
+
     var selectionHint: String {
         guard let selectedIndex else {
             return BoardCopy.selectCell
@@ -334,7 +347,8 @@ private extension BoardViewModel {
             isGiven: givens.contains(index),
             isSelected: selectedIndex == index,
             isConflict: conflicts.contains(index),
-            isHinted: hintedIndex == index
+            isHinted: hintedIndex == index,
+            layerDepth: layerDepth(at: index)
         )
     }
 
@@ -367,42 +381,20 @@ private extension BoardViewModel {
     }
 
     func pushUndo() {
-        undoStack.append(grid)
+        undoStack.append(snapshot())
         redoStack.removeAll()
     }
 
-    func move(from source: inout [Grid], onto destination: inout [Grid]) {
+    func move(from source: inout [BoardSnapshot], onto destination: inout [BoardSnapshot]) {
         guard !isSolving, let replacement = source.popLast() else {
             return
         }
-        destination.append(grid)
-        grid = replacement
+        destination.append(snapshot())
+        grid = replacement.grid
+        cellDepths = replacement.depths
         refreshConflicts()
         notice = .idle
         scheduleSolutionCount()
-    }
-
-    func refreshConflicts() {
-        conflicts = Self.linearSet(engine.conflicts(in: grid, rules: rules), size: rules.size)
-    }
-
-    func scheduleSolutionCount() {
-        // 求解中不发起计数，求解结束时 `apply` 会写入求解前盘面的解个数。
-        guard !isSolving else {
-            return
-        }
-        countTask?.cancel()
-        countGeneration += 1
-        let generation = countGeneration
-        let snapshot = grid
-        let activeRules = rules
-        countTask = Task {
-            let count = await Self.countSolutions(engine: engine, grid: snapshot, rules: activeRules)
-            guard !Task.isCancelled, generation == countGeneration else {
-                return
-            }
-            solutionCount = count
-        }
     }
 
     func beginSolve() -> Bool {
@@ -429,10 +421,13 @@ private extension BoardViewModel {
             return
         }
         if solved != grid {
+            let before = grid
             pushUndo()
             grid = solved
+            retagDepths(since: before)
             refreshConflicts()
         }
+        clearAllLayers()
         notice = .solved
     }
 
@@ -445,20 +440,30 @@ private extension BoardViewModel {
             engine.solutionCount(grid, rules: rules, limit: solutionCountLimit)
         }.value
     }
+}
 
-    static func linearSet(_ cells: Set<CellIndex>, size: Int) -> Set<Int> {
-        var indexes: Set<Int> = []
-        for cell in cells {
-            indexes.insert(cell.linearIndex(size: size))
-        }
-        return indexes
+/// 这两个方法要被 BoardViewModel+Layers.swift 调用，所以不能放在 private 扩展里。
+extension BoardViewModel {
+    func refreshConflicts() {
+        conflicts = Self.linearSet(engine.conflicts(in: grid, rules: rules), size: rules.size)
     }
 
-    static func givenIndexes(in grid: Grid) -> Set<Int> {
-        var indexes: Set<Int> = []
-        for (index, value) in grid.cells.enumerated() where value != Grid.emptyCell {
-            indexes.insert(index)
+    func scheduleSolutionCount() {
+        // 求解中不发起计数，求解结束时 `apply` 会写入求解前盘面的解个数。
+        guard !isSolving else {
+            return
         }
-        return indexes
+        countTask?.cancel()
+        countGeneration += 1
+        let generation = countGeneration
+        let snapshot = grid
+        let activeRules = rules
+        countTask = Task {
+            let count = await Self.countSolutions(engine: engine, grid: snapshot, rules: activeRules)
+            guard !Task.isCancelled, generation == countGeneration else {
+                return
+            }
+            solutionCount = count
+        }
     }
 }

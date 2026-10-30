@@ -193,6 +193,9 @@ struct BoardGridView: View {
         if cell.isConflict || cell.isGiven {
             return Color.primary
         }
+        if let style = AssumptionLayerStyle.style(forDepth: cell.layerDepth) {
+            return style.color
+        }
         return Color.accentColor
     }
 

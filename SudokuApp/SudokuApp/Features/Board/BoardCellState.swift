@@ -9,6 +9,8 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
     let isConflict: Bool
     /// 提示高亮的格子。
     var isHinted = false
+    /// 数字所属的假设层，0 表示确定数字。
+    var layerDepth = 0
 
     var id: Int {
         index
@@ -32,6 +34,9 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
         }
         if isConflict {
             notes.append("冲突")
+        }
+        if layerDepth > 0 {
+            notes.append("第 \(layerDepth) 层假设")
         }
         if isHinted {
             notes.append("提示格")
