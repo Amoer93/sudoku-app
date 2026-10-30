@@ -9,8 +9,76 @@ final class AssumptionLayerTests: XCTestCase {
         XCTAssertEqual(model.currentLayerDepth, 0)
         model.startLayer()
         XCTAssertEqual(model.currentLayerDepth, 1)
+        // 新层要先填过数字才能再开下一层
+        fill(model, index: 0, value: 1)
         model.startLayer()
         XCTAssertEqual(model.currentLayerDepth, 2)
+    }
+
+    func testCannotStartLayerOnTopOfEmptyLayer() {
+        let model = makeLayerModel()
+        XCTAssertTrue(model.canStartLayer)
+        model.startLayer()
+        XCTAssertFalse(model.canStartLayer)
+        model.startLayer()
+        XCTAssertEqual(model.currentLayerDepth, 1)
+        fill(model, index: 0, value: 1)
+        XCTAssertTrue(model.canStartLayer)
+    }
+
+    func testUndoPastLayerOpeningPopsTheLayer() {
+        let model = makeLayerModel()
+        fill(model, index: 0, value: 1)
+        model.startLayer()
+        model.undo()
+        XCTAssertEqual(model.currentLayerDepth, 0)
+        XCTAssertEqual(model.grid.cells[0], 0)
+        // 层已经不在了，回撤是空操作，不会把已撤销的数字写回来
+        let before = model.grid
+        model.rollbackLayer()
+        XCTAssertEqual(model.grid, before)
+    }
+
+    func testUndoPastNestedLayersPopsAllOfThem() {
+        let model = makeLayerModel()
+        model.startLayer()
+        fill(model, index: 0, value: 1)
+        model.startLayer()
+        fill(model, index: 1, value: 2)
+        model.undo()
+        XCTAssertEqual(model.currentLayerDepth, 2)
+        // 第二层在撤销栈长度 1 处开启，退到 0 步时它被弹掉；第一层开在 0 处，还在
+        model.undo()
+        XCTAssertEqual(model.currentLayerDepth, 1)
+    }
+
+    func testClearUserEntriesDropsAllLayers() {
+        let model = makeLayerModel()
+        model.startLayer()
+        fill(model, index: 0, value: 1)
+        model.clearUserEntries()
+        XCTAssertEqual(model.currentLayerDepth, 0)
+        XCTAssertEqual(model.layerDepth(at: 0), 0)
+    }
+
+    func testAutoSolveDropsAllLayers() async {
+        let solved = (try? Grid(size: 4, cells: Array(repeating: 1, count: 16))) ?? Grid(rules: .fourByFour)
+        let model = makeLayerModel(engine: ScriptedBoardEngine(solvedGrid: solved))
+        model.startLayer()
+        fill(model, index: 0, value: 1)
+        await model.autoSolve()
+        XCTAssertEqual(model.currentLayerDepth, 0)
+        XCTAssertEqual(model.layerDepth(at: 0), 0)
+        XCTAssertEqual(model.layerDepth(at: 5), 0)
+    }
+
+    func testAccessibilityLabelMentionsLayerDepth() {
+        let model = makeLayerModel()
+        model.startLayer()
+        fill(model, index: 0, value: 1)
+        let states = model.cellStates
+        XCTAssertTrue(states[0].accessibilityLabel.contains("第 1 层假设"))
+        XCTAssertFalse(states[1].accessibilityLabel.contains("层假设"))
     }
 
     func testEntriesAreTaggedWithLayerDepth() {
@@ -92,7 +160,7 @@ final class AssumptionLayerTests: XCTestCase {
             AssumptionLayerStyle.style(forDepth: depth)
         }
         XCTAssertEqual(styles.count, 3)
-        XCTAssertEqual(Set(styles.map(\.name)).count, 3)
+        XCTAssertEqual(Set(styles.map { $0.name }).count, 3)
         XCTAssertEqual(Set(styles.map(\.opacity)).count, 3)
         XCTAssertGreaterThan(styles[0].opacity, styles[1].opacity)
         XCTAssertGreaterThan(styles[1].opacity, styles[2].opacity)
@@ -109,9 +177,9 @@ private func fill(_ model: BoardViewModel, index: Int, value: Int) {
 }
 
 @MainActor
-private func makeLayerModel() -> BoardViewModel {
+private func makeLayerModel(engine: ScriptedBoardEngine = ScriptedBoardEngine()) -> BoardViewModel {
     let rules = Rules.fourByFour
     let grid = Grid(rules: rules)
     let puzzle = SamplePuzzle(rules: rules, givens: grid, solution: grid)
-    return BoardViewModel(title: "4×4", puzzle: puzzle, engine: ScriptedBoardEngine())
+    return BoardViewModel(title: "4×4", puzzle: puzzle, engine: engine)
 }

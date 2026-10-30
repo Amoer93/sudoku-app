@@ -137,7 +137,7 @@ private struct BoardContentView: View {
                     title: BoardCopy.startLayer,
                     systemImage: "square.3.layers.3d",
                     hint: BoardCopy.startLayerHint,
-                    isEnabled: !model.isSolving,
+                    isEnabled: model.canStartLayer,
                     action: {
                         model.startLayer()
                     }

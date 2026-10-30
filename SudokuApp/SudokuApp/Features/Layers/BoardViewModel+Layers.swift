@@ -31,9 +31,20 @@ extension BoardViewModel {
         return cellDepths[index]
     }
 
+    /// 能否开新层：最上层还没填过数字时不允许，避免叠出一层空的假设。
+    var canStartLayer: Bool {
+        guard !isSolving else {
+            return false
+        }
+        guard let top = layers.last else {
+            return true
+        }
+        return grid != top.snapshot.grid || cellDepths != top.snapshot.depths
+    }
+
     /// 开一层新假设，可以嵌套。
     func startLayer() {
-        guard !isSolving else {
+        guard canStartLayer else {
             return
         }
         layers.append(AssumptionLayer(snapshot: snapshot(), undoCount: undoStack.count))
@@ -54,6 +65,20 @@ extension BoardViewModel {
         refreshConflicts()
         notice = .idle
         scheduleSolutionCount()
+    }
+
+    /// 撤销退到某层开层点之前时，这一层已经不存在，要把它弹掉（嵌套的层也一样）。
+    /// 重做越过开层点时不会重建这一层，所以重做回来的数字沿用快照里的层深。
+    func dropLayersBeyondUndo() {
+        while let top = layers.last, top.undoCount > undoStack.count {
+            layers.removeLast()
+        }
+    }
+
+    /// 清空和自动解题会改动整盘，假设层不再有意义：全部丢掉，数字都算确定数字。
+    func clearAllLayers() {
+        layers.removeAll()
+        cellDepths = Array(repeating: 0, count: cellDepths.count)
     }
 
     func snapshot() -> BoardSnapshot {

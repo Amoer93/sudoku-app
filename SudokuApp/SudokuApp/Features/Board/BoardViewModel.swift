@@ -252,6 +252,7 @@ final class BoardViewModel {
         pushUndo()
         grid = next
         retagDepths(since: before)
+        clearAllLayers()
         refreshConflicts()
         notice = .cleared
         scheduleSolutionCount()
@@ -259,6 +260,7 @@ final class BoardViewModel {
 
     func undo() {
         move(from: &undoStack, onto: &redoStack)
+        dropLayersBeyondUndo()
     }
 
     func redo() {
@@ -425,6 +427,7 @@ private extension BoardViewModel {
             retagDepths(since: before)
             refreshConflicts()
         }
+        clearAllLayers()
         notice = .solved
     }
 

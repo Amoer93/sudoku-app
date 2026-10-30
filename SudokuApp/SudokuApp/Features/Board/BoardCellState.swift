@@ -35,6 +35,9 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
         if isConflict {
             notes.append("冲突")
         }
+        if layerDepth > 0 {
+            notes.append("第 \(layerDepth) 层假设")
+        }
         if isHinted {
             notes.append("提示格")
         }
