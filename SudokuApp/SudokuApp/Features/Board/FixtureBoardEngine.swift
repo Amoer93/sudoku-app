@@ -1,9 +1,9 @@
-/// 临时引擎。只认识 FixtureLibrary 里的题，按 Rules 匹配。
+/// 替身引擎，只给测试和 SwiftUI 预览用，App 默认不用它。只认识 FixtureLibrary 里的题，按 Rules 匹配。
 ///
 /// 冲突不是行列宫扫描，而是「和写死的答案不一样」。
 /// 求解也不搜索，答案对得上就交回那盘答案。
 /// 解的个数最多计到 `limit`：对得上是 1，对不上是 0。`limit` 为 0 时直接返回 0。
-/// 真引擎可以转发之后，删掉这个类型。
+/// 保留它是为了让测试和预览不依赖真求解，结果可预期。
 struct FixtureBoardEngine: SudokuBoardEngine {
     var puzzles: [SamplePuzzle] = FixtureLibrary.all
 

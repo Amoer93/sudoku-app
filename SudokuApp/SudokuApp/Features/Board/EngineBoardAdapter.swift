@@ -5,7 +5,7 @@ import SudokuEngine
 /// 只做类型转换，不改坐标。转换失败（尺寸不支持、长度不对）一律按「无冲突 / 无解 / 0 个解」处理，
 /// 不用 `try!`，也不会触发引擎的 `grid.size == rules.size` precondition。
 ///
-/// 注意：引擎的求解函数目前还是 `fatalError("TODO")`，求解实现合并之前不要把它设成默认引擎。
+/// 这是 App 的默认引擎（求解器已在 PR #6 合入）。
 struct EngineBoardAdapter: SudokuBoardEngine {
     func conflicts(in grid: Grid, rules: Rules) -> Set<CellIndex> {
         guard let (engineGrid, engineRules) = Self.convert(grid, rules) else {

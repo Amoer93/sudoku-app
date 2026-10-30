@@ -8,7 +8,7 @@ struct BoardScreen: View {
     let engine: any SudokuBoardEngine
     @State private var model: BoardViewModel?
 
-    init(preset: BoardPreset, engine: any SudokuBoardEngine = FixtureBoardEngine()) {
+    init(preset: BoardPreset, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
         self.preset = preset
         self.engine = engine
     }
@@ -171,6 +171,7 @@ private struct BoardActionButton: View {
 
 #Preview {
     NavigationStack {
-        BoardScreen(preset: .four)
+        // 预览用替身引擎，不跑真求解
+        BoardScreen(preset: .four, engine: FixtureBoardEngine())
     }
 }

@@ -12,7 +12,7 @@ P1 的可玩棋盘。源码在 App 目标里的 `SudokuApp/Features/Board/`（�
 
 ## 引擎替身
 
-PR #2 冻结了 `SudokuEngine` 的公开接口，PR #6 已把求解器合入 `main`。App 默认仍用下面的替身，切换步骤见文末。
+PR #2 冻结了 `SudokuEngine` 的公开接口，PR #6 已把求解器合入 `main`。App 默认已改用真引擎 `EngineBoardAdapter`，下面的替身只留给测试和 SwiftUI 预览。
 
 App 内的 `SudokuBoardEngine` 与冻结接口一致：
 
@@ -32,8 +32,9 @@ App 内的 `SudokuBoardEngine` 与冻结接口一致：
 - 转换前先校验 `grid.size == rules.size` 和 `cells.count == size * size`，不会触发引擎的 precondition。
 - `CellIndex` 行列一一对应，不做下标换算。
 
-求解器已经合入，切换清单：
+切换已完成：
 
-- 把 `BoardScreen` / `BoardViewModel` 的默认引擎换成 `EngineBoardAdapter()`。
-- 改掉 `BoardCopy` 里写死的「示例」文案（如「已填入示例解。」），多解提示注明是「原题」有多个解。
-- 删掉 `FixtureBoardEngine` 和只给替身用的示例答案。
+- [x] `BoardScreen` / `BoardViewModel` 的默认引擎换成 `EngineBoardAdapter()`。
+- [x] `BoardCopy` 去掉「示例」字样，解的个数提示注明是「当前盘面」（计数包含玩家填入的数字，与上面的说明一致）。
+- [x] `FixtureBoardEngine` 不删，只在测试和预览里显式传入。内置题目的答案保留给替身和测试核对。
+- [x] 首页入口给 `BoardScreen` 加了 `.id(preset)`，换题时模型跟着重建。
