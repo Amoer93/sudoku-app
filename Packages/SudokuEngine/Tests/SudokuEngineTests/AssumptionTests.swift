@@ -32,23 +32,23 @@ final class AssumptionTests: XCTestCase {
         let grid = Grid(rules: .nineByNine)
         let assumption = bestAssumption(in: grid, rules: .nineByNine)
         XCTAssertEqual(assumption?.target, CellIndex(row: 0, column: 0))
-        XCTAssertEqual(assumption?.candidates, Array(1...9))
+        XCTAssertEqual(assumption?.candidates, Array(1 ... 9))
         XCTAssertNil(hint(in: grid, rules: .nineByNine))
     }
 
     /// 9×9 中 MRV 应选出候选数严格更少的非首格。
     func testNineByNineMRVPicksNonFirstCell() throws {
         let grid = try makeGrid(size: 9, """
-            000000001
-            000000002
-            000000003
-            000000004
-            000000005
-            000000006
-            000000007
-            000000000
-            000000000
-            """)
+        000000001
+        000000002
+        000000003
+        000000004
+        000000005
+        000000006
+        000000007
+        000000000
+        000000000
+        """)
         let assumption = try XCTUnwrap(bestAssumption(in: grid, rules: .nineByNine))
         XCTAssertEqual(assumption.target, CellIndex(row: 7, column: 8))
         XCTAssertEqual(assumption.candidates, [8, 9])
