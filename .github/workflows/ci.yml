@@ -1,21 +1,20 @@
-# 每次 PR，以及推送到 main 时：构建 App、跑引擎和 App 单元测试、做 SwiftLint 与 SwiftFormat。
+# 每次 PR（以及手动触发）时：构建 App、跑引擎和 App 单元测试、做 SwiftLint 与 SwiftFormat。
 # macos-26 自带 Xcode 26，才能按 iOS 26 最低版本构建。见 docs/adr/0002-ios-deployment-target.md。
 # macos-26 runner 很紧张：多个 job 同时申请会排不上队，约 15 分钟后被 GitHub 取消。
 # 所以所有 macOS 工作合并成一个 job，按顺序执行，同一时间只申请一个 runner。
 
 name: CI
 
+# 不在推送到 main 时触发，这样能省 GitHub Actions 的分钟数。
 on:
   pull_request:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

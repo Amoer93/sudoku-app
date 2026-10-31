@@ -5,11 +5,17 @@ import Vision
 
 /// 在照片里找出棋盘，并校正成方图。
 public enum BoardDetector {
+    // 复用同一个 CIContext，避免每次调用都重新创建
+    private static let sharedContext = CIContext()
+
     /// 找到最大的近似方形并做透视校正；找不到抛 boardNotFound。
     public static func detectAndCorrect(_ image: CGImage) throws -> CGImage {
         let request = VNDetectRectanglesRequest()
-        request.minimumAspectRatio = 0.8
-        request.maximumObservations = 1
+        request.minimumAspectRatio = 0.6
+        request.minimumSize = 0.3
+        request.quadratureTolerance = 25
+        // 多取几个候选，再自己挑面积最大的
+        request.maximumObservations = 8
         try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
         let found = request.results ?? []
         let largest = found.max { area(of: $0) < area(of: $1) }
@@ -48,7 +54,7 @@ public enum BoardDetector {
             .translatedBy(x: -extent.minX, y: -extent.minY)
         let squared = corrected.transformed(by: transform)
         let outputRect = CGRect(x: 0, y: 0, width: side, height: side)
-        guard let output = CIContext().createCGImage(squared, from: outputRect) else {
+        guard let output = sharedContext.createCGImage(squared, from: outputRect) else {
             throw BoardVisionError.imageProcessingFailed
         }
         return output
