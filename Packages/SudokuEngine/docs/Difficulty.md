@@ -2,6 +2,11 @@
 
 本文说明 `DifficultyGrader` 如何给 9×9 标准数独打分、分档。
 
+## 适用范围
+
+- 只支持 9×9 标准数独。传入其他尺寸会触发 precondition 直接崩溃，调用方须先判断尺寸（入库接口对其他尺寸返回 `unsupportedSize`）。
+- 已经填满且正确的盘面：返回简单档，`seRating` 为 0，`score` 为 0，`techniqueCounts` 为空，`hardestTechnique` 只是占位值 `nakedSingle`。
+
 ## 评级流程
 
 1. 先用求解器确认题目有且只有一个解：无解返回 `GradeError.noSolution`，多解返回 `GradeError.multipleSolutions`。
@@ -26,7 +31,7 @@
 | XY-Wing | `xyWing` | 4.2 | 困难 |
 | 显性四数组 | `nakedQuad` | 5.0 | 专家 |
 | 隐性四数组 | `hiddenQuad` | 5.4 | 专家 |
-| 链（单数字染色 / X 链） | `chain` | 9.0 | 专家 |
+| 单数字染色 | `simpleColoring` | 6.5 | 专家 |
 | 试数 | `trialAndError` | 11.0 | 专家 |
 
 数值都集中在 `Sources/SudokuEngine/SERatings.swift` 一处维护。
@@ -52,6 +57,6 @@ SE 基准值参考 [SukakuExplainer](https://github.com/SudokuMonster/SukakuExpl
 
 与 SE 原版的差异：
 
-- `chain`：SE 原版的链类技巧（X 链、强制链等）从 6.5 起按链长加分；本项目按产品要求统一取 9.0（9–10 区间）。
+- `simpleColoring`：目前只实现单数字染色，不实现 X 链、强制链等更长的链。取 SE 链类技巧的起点 6.5，仍归专家档。
 - `trialAndError`：SE 没有这一项。本项目给超出技巧库的题取 11.0，并一律归为专家，保证用户上传的难题也能入库。
 - 本项目没有实现 SE 中的 XYZ-Wing、Jellyfish、唯一矩形等技巧，遇到时会落到更高的技巧或试数，评分可能比 SE 偏高。
