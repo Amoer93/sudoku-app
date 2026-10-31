@@ -39,6 +39,9 @@ jobs:
       - name: Run SudokuEngine package tests
         run: swift test --package-path Packages/SudokuEngine
 
+      - name: Run BoardVision package tests
+        run: swift test --package-path Packages/BoardVision
+
       - name: Select an iPhone simulator
         id: simulator
         run: |
