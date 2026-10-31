@@ -27,6 +27,7 @@ private func canonicalString(for cells: [Int]) -> String {
     let grid = cells.map { UInt8($0) }
     var best = [UInt8](repeating: 9, count: 81)
     var candidate = [UInt8](repeating: 0, count: 81)
+    var generation: UInt64 = 0
     let transposedGrid = transposed(grid)
     for transposedFlag in 0 ..< 2 {
         let source = transposedFlag == 1 ? transposedGrid : grid
@@ -36,7 +37,7 @@ private func canonicalString(for cells: [Int]) -> String {
                     for rows2 in permutationsOfThree {
                         let rows = permutedRows(source: source, bandPerm: bandPerm, rowPerms: [rows0, rows1, rows2])
                         searchStack(rows: rows, depth: 0, used: 0, state: SearchState(),
-                                    best: &best, candidate: &candidate)
+                                    best: &best, generation: &generation, candidate: &candidate)
                     }
                 }
             }
@@ -76,6 +77,8 @@ private struct SearchState {
     var better = false
     var pos = 0
     var columns: UInt64 = 0
+    // 记录 better 是在第几代 best 上算出的；best 更新后需重新校验
+    var generation: UInt64 = 0
 
     func column(at index: Int) -> Int { Int((columns >> UInt64(index * 4)) & 0xF) }
     mutating func setColumn(_ column: Int, at index: Int) { columns |= UInt64(column) << UInt64(index * 4) }
@@ -84,10 +87,10 @@ private struct SearchState {
 /// 递归选择列宫顺序与宫内列序（6 × 6^3 种），首行剪枝后再比较其余各行。
 private func searchStack(
     rows: [UInt8], depth: Int, used: Int, state: SearchState,
-    best: inout [UInt8], candidate: inout [UInt8]
+    best: inout [UInt8], generation: inout UInt64, candidate: inout [UInt8]
 ) {
     if depth == 3 {
-        finishRemainingRows(rows: rows, state: state, best: &best, candidate: &candidate)
+        finishRemainingRows(rows: rows, state: state, best: &best, generation: &generation, candidate: &candidate)
         return
     }
     for originalStack in 0 ..< 3 where (used & (1 << originalStack)) == 0 {
@@ -97,14 +100,14 @@ private func searchStack(
             for index in 0 ..< 3 {
                 let column = originalStack * 3 + columnPerm[index]
                 next.setColumn(column, at: next.pos)
-                if !place(rows[column], state: &next, best: best, candidate: &candidate) {
+                if !place(rows[column], state: &next, best: best, generation: generation, candidate: &candidate) {
                     pruned = true
                     break
                 }
             }
             if !pruned {
                 searchStack(rows: rows, depth: depth + 1, used: used | (1 << originalStack),
-                            state: next, best: &best, candidate: &candidate)
+                            state: next, best: &best, generation: &generation, candidate: &candidate)
             }
         }
     }
@@ -112,22 +115,38 @@ private func searchStack(
 
 /// 按已确定的列序处理第 2–9 行；若字典序更小则更新最优结果。
 private func finishRemainingRows(
-    rows: [UInt8], state: SearchState, best: inout [UInt8], candidate: inout [UInt8]
+    rows: [UInt8], state: SearchState, best: inout [UInt8], generation: inout UInt64, candidate: inout [UInt8]
 ) {
     var state = state
     for row in 1 ..< 9 {
         for index in 0 ..< 9 {
             let value = rows[row * 9 + state.column(at: index)]
-            if !place(value, state: &state, best: best, candidate: &candidate) { return }
+            if !place(value, state: &state, best: best, generation: generation, candidate: &candidate) { return }
         }
     }
-    if state.better { best = candidate }
+    // 必须用真实比较，不能依赖可能过期的 better 标志
+    if candidate.lexicographicallyPrecedes(best) {
+        best = candidate
+        generation &+= 1
+    }
 }
 
 /// 写入一个重标号后的值；若已确定比当前最优大则返回 false（剪枝）。
 private func place(
-    _ value: UInt8, state: inout SearchState, best: [UInt8], candidate: inout [UInt8]
+    _ value: UInt8, state: inout SearchState, best: [UInt8], generation: UInt64, candidate: inout [UInt8]
 ) -> Bool {
+    // best 可能已被兄弟分支更新，过期 better 会导致错误剪枝或覆盖，
+    // 因此在依赖 better 前按当前 best 重新校验已写前缀。
+    if state.generation != generation {
+        var prefixComparison = 0
+        for index in 0 ..< state.pos {
+            if candidate[index] < best[index] { prefixComparison = -1; break }
+            if candidate[index] > best[index] { prefixComparison = 1; break }
+        }
+        if prefixComparison > 0 { return false }
+        state.better = prefixComparison < 0
+        state.generation = generation
+    }
     var canon: UInt8 = 0
     if value != 0 {
         // 按首次出现顺序重标号
