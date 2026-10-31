@@ -15,6 +15,11 @@ final class LibraryViewModel {
         bank.entries(difficulty: difficultyFilter, source: sourceFilter, sort: sort)
     }
 
+    /// 换成新读出的题库（比如刚导入了题）。
+    func reload(_ newBank: PuzzleBank) {
+        bank = newBank
+    }
+
     /// 整个题库是不是空的（不受筛选影响）。
     var isBankEmpty: Bool {
         bank.entries(difficulty: nil, source: nil, sort: .sourceThenDifficulty).isEmpty
