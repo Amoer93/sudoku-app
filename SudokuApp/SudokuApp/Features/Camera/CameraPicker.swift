@@ -35,7 +35,7 @@ struct CameraPicker: UIViewControllerRepresentable {
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
             if let image = info[.originalImage] as? UIImage {
-                parent.onImage(image)
+                parent.onImage(image.downscaled(maxSide: 2000))
             }
             parent.dismiss()
         }
@@ -47,6 +47,24 @@ struct CameraPicker: UIViewControllerRepresentable {
 }
 
 extension UIImage {
+    /// 长边超过上限就缩小，省内存也加快识别；不超过就原样返回。
+    func downscaled(maxSide: CGFloat) -> UIImage {
+        let pixelWidth = size.width * scale
+        let pixelHeight = size.height * scale
+        let longSide = max(pixelWidth, pixelHeight)
+        guard longSide > maxSide else {
+            return self
+        }
+        let ratio = maxSide / longSide
+        let newSize = CGSize(width: (pixelWidth * ratio).rounded(), height: (pixelHeight * ratio).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.preferredRange = .standard
+        return UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
     /// 按方向重画一遍再取 CGImage，否则竖拍的照片会是横的。
     func uprightCGImage() -> CGImage? {
         let format = UIGraphicsImageRendererFormat()

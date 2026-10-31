@@ -151,6 +151,11 @@ final class PhotoImportViewModel {
         write(Grid.emptyCell)
     }
 
+    /// 视图读取照片失败时，用这个显示统一的错误提示。
+    func reportLoadFailure() {
+        errorMessage = PhotoImportCopy.recognitionFailed
+    }
+
     /// 生成可以开局的题目。有冲突也照常导入。
     func makePuzzle() -> SamplePuzzle {
         let rules = preset.rules
