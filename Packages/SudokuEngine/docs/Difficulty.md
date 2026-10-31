@@ -2,6 +2,11 @@
 
 本文说明 `DifficultyGrader` 如何给 9×9 标准数独打分、分档。
 
+## 适用范围
+
+- 只支持 9×9 标准数独。传入其他尺寸会触发 precondition 直接崩溃，调用方须先判断尺寸（入库接口对其他尺寸返回 `unsupportedSize`）。
+- 已经填满且正确的盘面：返回简单档，`seRating` 为 0，`score` 为 0，`techniqueCounts` 为空，`hardestTechnique` 只是占位值 `nakedSingle`。
+
 ## 评级流程
 
 1. 先用求解器确认题目有且只有一个解：无解返回 `GradeError.noSolution`，多解返回 `GradeError.multipleSolutions`。

@@ -41,7 +41,7 @@ final class DifficultyGraderTests: XCTestCase {
         XCTAssertEqual(result.difficulty, Difficulty.expert)
         XCTAssertGreaterThan(
             result.techniqueCounts[Technique.trialAndError, default: 0]
-                + result.techniqueCounts[Technique.chain, default: 0],
+                + result.techniqueCounts[Technique.simpleColoring, default: 0],
             0
         )
     }
