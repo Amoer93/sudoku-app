@@ -1,8 +1,9 @@
+import SudokuEngine
 import SwiftUI
 
 /// 尺寸入口。选中后进入对应尺寸的内置题目。
 struct SizePickerView: View {
-    @State private var library = LibraryViewModel(bank: MockPuzzleBank.builtin(now: Date()))
+    @State private var library = LibraryViewModel(bank: SizePickerView.loadBank())
     @State private var difficulty: Difficulty = .easy
 
     var body: some View {
@@ -17,6 +18,11 @@ struct SizePickerView: View {
                     ForEach(Difficulty.allCases, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
                 }
                 .pickerStyle(.segmented)
+                if !library.hasEntries(difficulty: difficulty) {
+                    Text(LibraryCopy.difficultyFallback)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(BoardPreset.allCases) { preset in
                     NavigationLink {
                         // 按题目区分视图身份：换题时重建 BoardScreen，模型跟着刷新
@@ -33,6 +39,11 @@ struct SizePickerView: View {
             }
             .navigationTitle(HomeCopy.title)
         }
+    }
+
+    /// 加载题库；失败就用空题库，不能崩。
+    private static func loadBank() -> PuzzleBank {
+        (try? PuzzleBank.load(userData: nil)) ?? PuzzleBank()
     }
 
     /// 9×9 按所选难度从题库抽题；抽不到或其他尺寸就用内置题

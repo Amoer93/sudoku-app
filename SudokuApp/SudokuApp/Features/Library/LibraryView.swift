@@ -1,3 +1,4 @@
+import SudokuEngine
 import SwiftUI
 
 /// 题库列表：可筛选、排序，点一行开始玩。
@@ -5,20 +6,40 @@ struct LibraryView: View {
     @Bindable var model: LibraryViewModel
 
     var body: some View {
-        List {
-            ForEach(model.visibleEntries) { entry in
-                NavigationLink {
-                    BoardScreen(preset: .nine, puzzle: model.puzzle(for: entry)).id(entry.id)
-                } label: {
-                    row(entry)
-                }
-            }
-            if model.visibleEntries.isEmpty {
-                Text(LibraryCopy.emptyList).foregroundStyle(.secondary)
+        let entries = model.visibleEntries
+        return Group {
+            if model.isBankEmpty {
+                ContentUnavailableView(
+                    LibraryCopy.emptyBankTitle, systemImage: "square.grid.3x3",
+                    description: Text(LibraryCopy.emptyBankHint)
+                )
+            } else if entries.isEmpty {
+                filteredEmptyView
+            } else {
+                list(entries)
             }
         }
         .navigationTitle(LibraryCopy.entry)
         .toolbar { ToolbarItem(placement: .primaryAction) { filterMenu } }
+    }
+
+    private func list(_ entries: [PuzzleBankEntry]) -> some View {
+        List(entries) { entry in
+            NavigationLink {
+                BoardScreen(preset: .nine, puzzle: model.puzzle(for: entry)).id(entry.id)
+            } label: {
+                row(entry)
+            }
+        }
+    }
+
+    /// 只是筛选没结果：给个按钮一键恢复。
+    private var filteredEmptyView: some View {
+        ContentUnavailableView {
+            Text(LibraryCopy.emptyList)
+        } actions: {
+            Button(LibraryCopy.clearFilters) { model.clearFilters() }
+        }
     }
 
     private func row(_ entry: PuzzleBankEntry) -> some View {
@@ -35,7 +56,7 @@ struct LibraryView: View {
     private var filterMenu: some View {
         Menu {
             Picker(LibraryCopy.sortTitle, selection: $model.sort) {
-                ForEach(PuzzleBankSort.allCases, id: \.self) { sort in Text(LibraryCopy.title(sort)).tag(sort) }
+                ForEach(LibraryCopy.sorts, id: \.self) { sort in Text(LibraryCopy.title(sort)).tag(sort) }
             }
             Picker(LibraryCopy.difficultyTitle, selection: $model.difficultyFilter) {
                 Text(LibraryCopy.all).tag(Difficulty?.none)
