@@ -65,9 +65,11 @@ struct BoardScreen: View {
     }
 
     private func openExisting() {
-        existingPuzzle = banner.existingPuzzle()
-        banner.dismiss()
-        isExistingShown = existingPuzzle != nil
+        Task {
+            existingPuzzle = await banner.existingPuzzle()
+            banner.dismiss()
+            isExistingShown = existingPuzzle != nil
+        }
     }
 }
 

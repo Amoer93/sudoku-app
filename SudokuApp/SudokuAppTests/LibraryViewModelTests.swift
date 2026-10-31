@@ -115,6 +115,16 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertNil(model.newGamePuzzle(difficulty: .easy, using: &generator))
     }
 
+    func testOpenPuzzleTogglesIsOpening() async {
+        let model = makeModel()
+        let target = model.visibleEntries[0]
+        XCTAssertFalse(model.isOpening)
+        let puzzle = await model.openPuzzle(for: target)
+        XCTAssertNotNil(puzzle)
+        XCTAssertFalse(model.isOpening)
+        XCTAssertNil(model.openingEntryID)
+    }
+
     func testEmptyStateCopy() {
         XCTAssertEqual(LibraryCopy.emptyBankTitle, "题库暂无题目")
         XCTAssertEqual(LibraryCopy.emptyBankHint, "可以在首页用「拍照导入」添加题目")

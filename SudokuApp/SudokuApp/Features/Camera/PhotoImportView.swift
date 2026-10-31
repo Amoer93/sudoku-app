@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 拍照导入：选图、识别、核对，然后导入成一局。
 struct PhotoImportView: View {
-    @State private var model = PhotoImportViewModel(importer: .live())
+    @State private var model = PhotoImportViewModel(importer: .shared)
     @State private var pickerItem: PhotosPickerItem?
     @State private var isCameraShown = false
     // 点“导入”时才生成题目，避免视图刷新时反复求解

@@ -4,6 +4,8 @@ import SwiftUI
 /// 题库列表：可筛选、排序，点一行开始玩。
 struct LibraryView: View {
     @Bindable var model: LibraryViewModel
+    // 点击时才求解，结果放这里触发跳转
+    @State private var route: PlayRoute?
 
     var body: some View {
         let entries = model.visibleEntries
@@ -21,15 +23,25 @@ struct LibraryView: View {
         }
         .navigationTitle(LibraryCopy.entry)
         .toolbar { ToolbarItem(placement: .primaryAction) { filterMenu } }
+        .navigationDestination(item: $route) { route in
+            BoardScreen(preset: route.preset, puzzle: route.puzzle).id(route.id)
+        }
     }
 
     private func list(_ entries: [PuzzleBankEntry]) -> some View {
         List(entries) { entry in
-            NavigationLink {
-                BoardScreen(preset: .nine, puzzle: model.puzzle(for: entry)).id(entry.id)
-            } label: {
-                row(entry)
+            Button { open(entry) } label: { row(entry) }
+                .buttonStyle(.plain)
+        }
+    }
+
+    /// 点击后才求解（后台线程），完成再跳转；求解期间忽略重复点击（由 model 判断）。
+    private func open(_ entry: PuzzleBankEntry) {
+        Task {
+            guard let puzzle = await model.openPuzzle(for: entry) else {
+                return
             }
+            route = PlayRoute(preset: .nine, puzzle: puzzle)
         }
     }
 
@@ -49,7 +61,16 @@ struct LibraryView: View {
             Text(LibraryCopy.title(entry.source))
                 .font(.caption).padding(.horizontal, 8).padding(.vertical, 2)
                 .background(.quaternary, in: Capsule())
+            // 被点的那一行用转圈代替箭头
+            if model.openingEntryID == entry.id {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
         }
+        .contentShape(Rectangle()) // 整行都能点
         .accessibilityElement(children: .combine)
     }
 
