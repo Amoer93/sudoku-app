@@ -94,5 +94,13 @@ private func gradingSteps() -> [GradingStep] {
         },
         GradingStep(.hiddenSingle) { $0.applyHiddenSingle(boxesOnly: false) },
         GradingStep(.nakedSingle) { $0.applyNakedSingle() },
+        GradingStep(.pointing) { $0.applyPointing() },
+        GradingStep(.boxLineReduction) { $0.applyBoxLineReduction() },
+        GradingStep(.nakedPair) { $0.applyNakedSubset(size: 2) },
+        GradingStep(.hiddenPair) { $0.applyHiddenSubset(size: 2) },
+        GradingStep(.nakedTriple) { $0.applyNakedSubset(size: 3) },
+        GradingStep(.hiddenTriple) { $0.applyHiddenSubset(size: 3) },
+        GradingStep(.nakedQuad) { $0.applyNakedSubset(size: 4) },
+        GradingStep(.hiddenQuad) { $0.applyHiddenSubset(size: 4) },
     ]
 }
