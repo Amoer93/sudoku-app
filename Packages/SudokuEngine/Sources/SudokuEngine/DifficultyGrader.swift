@@ -2,7 +2,11 @@
 public enum DifficultyGrader {
     /// 对标准 9×9 数独进行基于技巧的评级。
     ///
-    /// 前置条件：`rules == .nineByNine` 且 `grid.size == 9`。
+    /// 前置条件：`rules == .nineByNine` 且 `grid.size == 9`；传入其他尺寸会触发 precondition 直接崩溃，
+    /// 调用方（如导入入库）须先判断尺寸。
+    ///
+    /// 已经填满且正确的盘面不需要任何技巧：返回简单档、`seRating` 为 0、`score` 为 0、
+    /// `techniqueCounts` 为空；`hardestTechnique` 此时只是占位值 `.nakedSingle`。
     public static func grade(_ grid: Grid, rules: Rules) -> Result<GradeResult, GradeError> {
         precondition(rules == .nineByNine, "only nineByNine is supported")
         precondition(grid.size == 9, "only 9x9 grids are supported")
@@ -12,6 +16,7 @@ public enum DifficultyGrader {
             return .failure(error)
         case .success(let board):
             if board.isSolved {
+                // 已解盘面：无需技巧，seRating 0，hardestTechnique 仅为占位
                 return .success(GradeResult(
                     difficulty: .easy, score: 0, seRating: 0,
                     hardestTechnique: .nakedSingle, techniqueCounts: [:]
@@ -100,6 +105,6 @@ private func gradingSteps() -> [GradingStep] {
         GradingStep(.xyWing) { $0.applyXYWing() },
         GradingStep(.nakedQuad) { $0.applyNakedSubset(size: 4) },
         GradingStep(.hiddenQuad) { $0.applyHiddenSubset(size: 4) },
-        GradingStep(.chain) { $0.applyChain() },
+        GradingStep(.simpleColoring) { $0.applySimpleColoring() },
     ]
 }

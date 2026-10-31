@@ -23,9 +23,9 @@ final class DifficultyTierTests: XCTestCase {
                         se: 4.2, difficulty: .hard, hardest: .xyWing)
     }
 
-    func testChainPuzzleIsExpert() throws {
+    func testSimpleColoringPuzzleIsExpert() throws {
         try assertGrade("000451000000006007005000060100500200300040009094000800000000043040390602700800000",
-                        se: 9.0, difficulty: .expert, hardest: .chain)
+                        se: 6.5, difficulty: .expert, hardest: .simpleColoring)
     }
 
     private func assertGrade(
