@@ -125,4 +125,70 @@ final class DifficultyGraderTechniqueTests: XCTestCase {
         remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 5 }, board: &board)
         XCTAssertFalse(board.applyBoxLineReduction())
     }
+
+    // MARK: - 鱼型技巧
+
+    func testXWingEliminatesFromColumns() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        for row in [0, 1] {
+            let kept = [row * 9 + 5, row * 9 + 7]
+            remove(digit: 5, from: rowCells(row).filter { !kept.contains($0) }, board: &board)
+        }
+        XCTAssertTrue(board.applyXWing())
+        XCTAssertFalse(hasCandidate(board, digit: 5, at: 25))
+    }
+
+    func testXWingDoesNothingWithoutAlignedPair() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        remove(digit: 5, from: rowCells(0).filter { $0 != 5 && $0 != 7 && $0 != 8 }, board: &board)
+        remove(digit: 5, from: rowCells(1).filter { $0 != 14 && $0 != 16 }, board: &board)
+        XCTAssertFalse(board.applyXWing())
+    }
+
+    func testSwordfishEliminatesFromColumns() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        for row in [0, 4, 8] {
+            let kept = [row * 9 + 2, row * 9 + 3, row * 9 + 7]
+            remove(digit: 5, from: rowCells(row).filter { !kept.contains($0) }, board: &board)
+        }
+        XCTAssertTrue(board.applySwordfish())
+        XCTAssertFalse(hasCandidate(board, digit: 5, at: 16))
+    }
+
+    // MARK: - 链式技巧
+
+    func testXYWingEliminatesZ() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        // pivot cell 0，两个钳子分别在同一行、同一列且不同宫，夹角 victim 为 cell 40。
+        board.candidates[0] = mask([1, 2])
+        board.candidates[4] = mask([1, 3])
+        board.candidates[36] = mask([2, 3])
+        board.candidates[40] = mask([3, 4])
+        XCTAssertTrue(board.applyXYWing())
+        XCTAssertFalse(hasCandidate(board, digit: 3, at: 40))
+    }
+
+    func testXYWingDoesNothingWhenPincersDoNotShareZ() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        board.candidates[0] = mask([1, 2])
+        board.candidates[1] = mask([1, 3])
+        board.candidates[9] = mask([2, 4])
+        XCTAssertFalse(board.applyXYWing())
+    }
+
+    func testChainEliminatesSameColor() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 1 }, board: &board)
+        remove(digit: 4, from: colCells(0).filter { $0 != 0 && $0 != 9 }, board: &board)
+        XCTAssertTrue(board.applyChain())
+        XCTAssertTrue(hasCandidate(board, digit: 4, at: 0))
+        XCTAssertFalse(hasCandidate(board, digit: 4, at: 1))
+        XCTAssertFalse(hasCandidate(board, digit: 4, at: 9))
+    }
+
+    func testChainDoesNothingWithoutConjugatePair() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        remove(digit: 5, from: rowCells(0).filter { $0 != 0 && $0 != 1 && $0 != 7 }, board: &board)
+        XCTAssertFalse(board.applyChain())
+    }
 }
