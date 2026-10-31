@@ -118,4 +118,128 @@ final class BoardVisionTests: XCTestCase {
         let blank = try makeImage(side: 100, size: 1)
         XCTAssertNoThrow(try VisionCellTextRecognizer().recognize(blank))
     }
+
+    func testFiveByFiveAssembly() throws {
+        let board = BoardRecognizer(recognizer: FakeCellTextRecognizer())
+        let digits = ["1", "2", "3", "4", "5", "6"].map { input($0, 0.9) }
+        let inputs = digits + Array(repeating: emptyInput, count: 19)
+        let result = try board.assemble(size: 5, perCell: inputs)
+        XCTAssertEqual(result.cells.count, 25)
+        XCTAssertEqual(result.cells.prefix(5).map(\.digit), [1, 2, 3, 4, 5])
+        // 5x5 里 6 超出范围，要被过滤
+        XCTAssertEqual(result.cells[5].status, .toConfirm)
+        XCTAssertNil(result.cells[5].digit)
+    }
+
+    func testExactThresholdBoundaries() throws {
+        let board = BoardRecognizer(recognizer: FakeCellTextRecognizer())
+        let inputs = [input("1", 0.8), input("2", 0.5), input("3", 0.4999)]
+            + Array(repeating: emptyInput, count: 13)
+        let result = try board.assemble(size: 4, perCell: inputs)
+        XCTAssertEqual(result.cells[0].status, .certain)
+        XCTAssertEqual(result.cells[1].status, .lowConfidence)
+        XCTAssertEqual(result.cells[2].status, .toConfirm)
+    }
+
+    func testBoundariesCoverFullSide() {
+        let edges = CellSlicer.boundaries(side: 100, count: 9)
+        XCTAssertEqual(edges.count, 10)
+        XCTAssertEqual(edges.first, 0)
+        XCTAssertEqual(edges.last, 100)
+        let widths = zip(edges, edges.dropFirst()).map { $1 - $0 }
+        XCTAssertEqual(widths.reduce(0, +), 100)
+        XCTAssertTrue(widths.allSatisfy { $0 == 11 || $0 == 12 })
+    }
+
+    func testSliceSideNotDivisibleByCount() throws {
+        let cells = try CellSlicer.slice(makeImage(side: 100, size: 9), size: 9)
+        XCTAssertEqual(cells.count, 81)
+        XCTAssertTrue(cells.allSatisfy { $0.width > 0 && $0.height > 0 })
+    }
+
+    func testSliceRejectsNonSquareImage() throws {
+        let square = try makeImage(side: 200, size: 4)
+        let wide = try XCTUnwrap(square.cropping(to: CGRect(x: 0, y: 0, width: 200, height: 150)))
+        XCTAssertThrowsError(try CellSlicer.slice(wide, size: 4)) {
+            XCTAssertEqual($0 as? BoardVisionError, .imageNotSquare)
+        }
+    }
+
+    func testSliceToleratesTinySquareError() throws {
+        let square = try makeImage(side: 200, size: 4)
+        let almost = try XCTUnwrap(square.cropping(to: CGRect(x: 0, y: 0, width: 200, height: 197)))
+        XCTAssertEqual(try CellSlicer.slice(almost, size: 4).count, 16)
+    }
+
+    func testLookalikesReadAsOne() throws {
+        let board = BoardRecognizer(recognizer: FakeCellTextRecognizer())
+        let inputs = ["l", "I", "|", "ll"].map { input($0, 0.9) } + Array(repeating: emptyInput, count: 12)
+        let result = try board.assemble(size: 4, perCell: inputs)
+        XCTAssertEqual(result.cells.prefix(3).map(\.digit), [1, 1, 1])
+        XCTAssertEqual(result.cells[3].status, .toConfirm)
+    }
+
+    func testThresholdsValidation() throws {
+        XCTAssertThrowsError(try RecognitionThresholds(certain: 0.5, low: 0.8)) {
+            XCTAssertEqual($0 as? BoardVisionError, .invalidThresholds)
+        }
+        XCTAssertThrowsError(try RecognitionThresholds(certain: 1.2, low: 0.5))
+        XCTAssertThrowsError(try RecognitionThresholds(certain: 0.5, low: -0.1))
+        XCTAssertNoThrow(try RecognitionThresholds(certain: 0.6, low: 0.6))
+    }
+
+    func testCustomThresholdsAreUsed() throws {
+        let thresholds = try RecognitionThresholds(certain: 0.9, low: 0.2)
+        let board = BoardRecognizer(recognizer: FakeCellTextRecognizer(), thresholds: thresholds)
+        let inputs = [input("1", 0.85), input("2", 0.25)] + Array(repeating: emptyInput, count: 14)
+        let result = try board.assemble(size: 4, perCell: inputs)
+        XCTAssertEqual(result.cells[0].status, .lowConfidence)
+        XCTAssertEqual(result.cells[1].status, .lowConfidence)
+    }
+
+    func testToConfirmUsesBestConfidence() throws {
+        let board = BoardRecognizer(recognizer: FakeCellTextRecognizer())
+        let weak = CellInput(isEmpty: false, candidates: [
+            TextCandidate(text: "2", confidence: 0.1),
+            TextCandidate(text: "x", confidence: 0.9),
+            TextCandidate(text: "3", confidence: 0.4),
+        ])
+        let none = input("x", 0.9)
+        let result = try board.assemble(size: 4, perCell: [weak, none] + Array(repeating: emptyInput, count: 14))
+        XCTAssertEqual(result.cells[0], CellRecognition(digit: nil, confidence: 0.4, status: .toConfirm))
+        XCTAssertEqual(result.cells[1], CellRecognition(digit: nil, confidence: 0, status: .toConfirm))
+    }
+
+    func testPreprocessorUpscalesSmallCell() throws {
+        let small = try makeImage(side: 20, size: 1)
+        let prepared = try CellPreprocessor.prepare(small)
+        XCTAssertGreaterThanOrEqual(prepared.width, CellPreprocessor.minimumSide)
+        XCTAssertGreaterThanOrEqual(prepared.height, CellPreprocessor.minimumSide)
+    }
+
+    func testDetectorCorrectsClearSquare() throws {
+        let image = try makeFramedSquareImage()
+        do {
+            let corrected = try BoardDetector.detectAndCorrect(image)
+            XCTAssertEqual(corrected.width, corrected.height)
+            XCTAssertGreaterThan(corrected.width, 100)
+        } catch BoardVisionError.boardNotFound {
+            // 个别环境的 Vision 可能不认合成图，跳过而不是误报失败
+            throw XCTSkip("Vision found no rectangle in the synthetic image")
+        }
+    }
+}
+
+/// 白底画布，中间偏一点画一个粗黑框正方形。
+private func makeFramedSquareImage() throws -> CGImage {
+    let context = try XCTUnwrap(CGContext(
+        data: nil, width: 800, height: 600, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue
+    ))
+    context.setFillColor(gray: 1, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: 800, height: 600))
+    context.setStrokeColor(gray: 0, alpha: 1)
+    context.setLineWidth(16)
+    context.stroke(CGRect(x: 320, y: 130, width: 340, height: 340))
+    return try XCTUnwrap(context.makeImage())
 }

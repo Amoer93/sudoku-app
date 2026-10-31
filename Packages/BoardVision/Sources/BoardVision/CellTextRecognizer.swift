@@ -27,7 +27,10 @@ public struct VisionCellTextRecognizer: CellTextRecognizer {
         request.recognitionLevel = .accurate
         // 数字不是单词，语言纠错会把它改坏
         request.usesLanguageCorrection = false
-        try VNImageRequestHandler(cgImage: cell, options: [:]).perform([request])
+        // 只认英文数字，别的语言模型会把数字读成别的字
+        request.recognitionLanguages = ["en-US"]
+        let prepared = try CellPreprocessor.prepare(cell)
+        try VNImageRequestHandler(cgImage: prepared, options: [:]).perform([request])
         let observations = request.results ?? []
         return observations.flatMap { observation in
             observation.topCandidates(Self.candidateLimit).map {
