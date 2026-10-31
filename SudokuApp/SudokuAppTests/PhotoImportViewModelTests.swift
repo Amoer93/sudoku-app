@@ -10,31 +10,31 @@ final class PhotoImportViewModelTests: XCTestCase {
         for index in 0 ..< size * size {
             let digit = digits[index]
             var status = CellStatus.empty
-            if digit != nil {
-                status = uncertain.contains(index) ? .lowConfidence : .certain
-            }
+            if digit != nil { status = uncertain.contains(index) ? .lowConfidence : .certain }
             cells.append(CellRecognition(digit: digit, confidence: 0.9, status: status))
         }
         return RecognitionResult(size: size, cells: cells)
     }
 
+    private func appliedFourModel(digits: [Int: Int], uncertain: Set<Int> = []) -> PhotoImportViewModel {
+        let model = PhotoImportViewModel()
+        model.apply(result: result(size: 4, digits: digits, uncertain: uncertain))
+        return model
+    }
+
     func testDefaultPresetIsNineByNine() {
-        XCTAssertEqual(PhotoImportViewModel.guessPreset(), .nine)
-        XCTAssertEqual(PhotoImportViewModel().preset, .nine)
+        XCTAssertEqual([PhotoImportViewModel.guessPreset(), PhotoImportViewModel().preset], [.nine, .nine])
     }
 
     func testApplyBuildsGridAndReviewSet() {
-        let model = PhotoImportViewModel()
-        model.apply(result: result(size: 4, digits: [0: 1, 5: 3], uncertain: [5]))
+        let model = appliedFourModel(digits: [0: 1, 5: 3], uncertain: [5])
         XCTAssertEqual(model.preset, .four)
-        XCTAssertEqual(model.grid.cells[0], 1)
-        XCTAssertEqual(model.grid.cells[5], 3)
+        XCTAssertEqual([model.grid.cells[0], model.grid.cells[5]], [1, 3])
         XCTAssertEqual(model.reviewIndexes, [5])
     }
 
     func testSetDigitUpdatesGridAndClearsReviewMark() {
-        let model = PhotoImportViewModel()
-        model.apply(result: result(size: 4, digits: [5: 3], uncertain: [5]))
+        let model = appliedFourModel(digits: [5: 3], uncertain: [5])
         model.selectedIndex = 5
         model.setDigit(2)
         XCTAssertEqual(model.grid.cells[5], 2)
@@ -44,8 +44,7 @@ final class PhotoImportViewModelTests: XCTestCase {
     }
 
     func testDuplicateDigitsAreConflictsButStillImportable() {
-        let model = PhotoImportViewModel()
-        model.apply(result: result(size: 4, digits: [0: 1, 1: 1]))
+        let model = appliedFourModel(digits: [0: 1, 1: 1])
         XCTAssertEqual(model.conflicts, [0, 1])
         XCTAssertEqual(model.messages, [PhotoImportCopy.conflicts])
         let puzzle = model.makePuzzle()
@@ -54,34 +53,36 @@ final class PhotoImportViewModelTests: XCTestCase {
     }
 
     func testUniqueSolutionStatus() {
-        let model = PhotoImportViewModel()
-        let digits = [0: 1, 1: 2, 2: 3, 4: 3, 6: 1, 7: 2, 9: 1, 10: 4, 11: 3, 12: 4, 13: 3, 14: 2]
-        model.apply(result: result(size: 4, digits: digits))
+        let model = appliedFourModel(
+            digits: [0: 1, 1: 2, 2: 3, 4: 3, 6: 1, 7: 2, 9: 1, 10: 4, 11: 3, 12: 4, 13: 3, 14: 2])
         XCTAssertEqual(model.solutionStatus, .unique)
         XCTAssertTrue(model.messages.isEmpty)
     }
 
     func testNoSolutionStatusWithoutConflicts() {
-        let model = PhotoImportViewModel()
         // 第一行的两个空格都只能填 4，但没有任何格子直接冲突
-        model.apply(result: result(size: 4, digits: [0: 1, 1: 2, 6: 3, 11: 3]))
+        let model = appliedFourModel(digits: [0: 1, 1: 2, 6: 3, 11: 3])
         XCTAssertTrue(model.conflicts.isEmpty)
         XCTAssertEqual(model.solutionStatus, .noSolution)
         XCTAssertEqual(model.messages, [PhotoImportCopy.noSolution])
     }
 
     func testEmptyBoardHasMultipleSolutions() {
-        let model = PhotoImportViewModel()
-        model.apply(result: result(size: 4, digits: [:]))
+        let model = appliedFourModel(digits: [:])
         XCTAssertEqual(model.solutionStatus, .multiple)
         XCTAssertEqual(model.messages, [PhotoImportCopy.multipleSolutions])
     }
 
     func testLoadBoardNotFoundKeepsState() async throws {
-        let model = fakeModel(detect: { _ in throw BoardVisionError.boardNotFound })
-        await model.load(image: try image(4))
+        let four = result(size: 4, digits: [0: 1])
+        let shouldFail = FailSwitch()
+        let model = fakeModel(detect: {
+            if shouldFail.isOn { throw BoardVisionError.boardNotFound }
+            return $0
+        }, recognize: { _, _ in four })
+        try await loadThenFail(model, shouldFail)
         XCTAssertEqual(model.errorMessage, PhotoImportCopy.boardNotFound)
-        XCTAssertEqual(model.preset, .nine)
+        assertKeeps(model, .four, four)
     }
 
     func testChangeSizeFailureKeepsOldState() async throws {
@@ -92,42 +93,82 @@ final class PhotoImportViewModelTests: XCTestCase {
         })
         await model.load(image: try image(4))
         await model.changeSize(.four)
-        XCTAssertEqual(model.preset, .nine)
-        XCTAssertEqual(model.result, nine)
-        XCTAssertEqual(model.grid.size, 9)
+        assertKeeps(model, .nine, nine)
         XCTAssertEqual(model.errorMessage, PhotoImportCopy.recognitionFailed)
     }
 
     func testApplyWithBrokenGridKeepsPreset() {
-        let model = PhotoImportViewModel()
-        model.apply(result: result(size: 4, digits: [0: 1]))
+        let model = appliedFourModel(digits: [0: 1])
         XCTAssertFalse(model.apply(result: RecognitionResult(size: 9, cells: []))) // 格子数对不上
-        XCTAssertEqual(model.preset, .four)
+        assertKeeps(model, .four, result(size: 4, digits: [0: 1]))
     }
 
     func testStaleLoadResultIsDiscarded() async throws {
         let fast = result(size: 4, digits: [0: 1])
-        let started = expectation(description: "slow started")
-        let gate = DispatchSemaphore(value: 0)
-        let model = fakeModel(recognize: { image, _ in
-            guard image.width == 8 else { return fast } // 宽 8 的图是慢请求
-            started.fulfill()
-            gate.wait()
-            return RecognitionResult(size: 4, cells: [])
-        })
-        let slowTask = Task { await model.load(image: try image(8)) }
-        await fulfillment(of: [started], timeout: 5)
-        await model.load(image: try image(4))
-        gate.signal()
-        try await slowTask.value
+        // 宽 8 的图是慢请求
+        let model = try await withBlockedLoad(slow: result(size: 4, digits: [0: 2]), fast: fast) { model in
+            await model.load(image: try self.image(4))
+        }
+        XCTAssertNil(model.errorMessage)
         XCTAssertEqual(model.result, fast)
+        XCTAssertEqual(model.grid.cells[0], 1)
+    }
+
+    func testChangeSizeDuringLoadDiscardsLoadResult() async throws {
+        let model = try await withBlockedLoad(slow: result(size: 9, digits: [0: 1])) { await $0.changeSize(.four) }
+        XCTAssertEqual(model.preset, .four)
+        XCTAssertNil(model.result)
+        XCTAssertEqual(model.grid.size, 4)
     }
 
     func testLoadRecognizeErrorKeepsPreset() async throws {
-        let model = fakeModel()
-        await model.load(image: try image(4))
+        let four = result(size: 4, digits: [0: 1])
+        let shouldFail = FailSwitch()
+        let model = fakeModel(recognize: { _, _ in
+            if shouldFail.isOn { throw BoardVisionError.imageProcessingFailed }
+            return four
+        })
+        try await loadThenFail(model, shouldFail)
         XCTAssertEqual(model.errorMessage, PhotoImportCopy.recognitionFailed)
-        XCTAssertEqual(model.preset, .nine)
+        assertKeeps(model, .four, four)
+    }
+
+    private final class FailSwitch: @unchecked Sendable {
+        var isOn = false
+    }
+
+    private func loadThenFail(_ model: PhotoImportViewModel, _ shouldFail: FailSwitch) async throws {
+        await model.load(image: try image(4))
+        shouldFail.isOn = true
+        await model.load(image: try image(4))
+    }
+
+    private func assertKeeps(_ model: PhotoImportViewModel, _ preset: BoardPreset, _ expected: RecognitionResult) {
+        XCTAssertEqual(model.preset, preset)
+        XCTAssertEqual(model.result, expected)
+        XCTAssertEqual(model.grid.size, expected.size)
+    }
+
+    /// Runs `action` while an 8-wide load is stuck in recognize; other images return `fast` if given.
+    private func withBlockedLoad(
+        slow: RecognitionResult,
+        fast: RecognitionResult? = nil,
+        action: (PhotoImportViewModel) async throws -> Void
+    ) async throws -> PhotoImportViewModel {
+        let started = expectation(description: "slow started")
+        let gate = DispatchSemaphore(value: 0)
+        let model = fakeModel(recognize: { image, _ in
+            if let fastResult = fast, image.width != 8 { return fastResult }
+            started.fulfill()
+            gate.wait()
+            return slow
+        })
+        let slowTask = Task { await model.load(image: try image(8)) }
+        await fulfillment(of: [started], timeout: 5)
+        try await action(model)
+        gate.signal()
+        try await slowTask.value
+        return model
     }
 
     private func fakeModel(
