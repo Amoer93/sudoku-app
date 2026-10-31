@@ -9,7 +9,7 @@ final class PhotoImportViewModel {
     enum SolutionStatus: Equatable {
         case unique
         case multiple
-        case none
+        case noSolution
         case unknown
     }
 
@@ -25,10 +25,20 @@ final class PhotoImportViewModel {
 
     @ObservationIgnored private let engine: any SudokuBoardEngine
     @ObservationIgnored private var correctedImage: CGImage?
+    @ObservationIgnored private let detect: @Sendable (CGImage) throws -> CGImage
+    @ObservationIgnored private let recognize: @Sendable (CGImage, Int) throws -> RecognitionResult
+    @ObservationIgnored private var requestToken = 0 // 新请求加一，丢弃旧结果
 
-    init(engine: any SudokuBoardEngine = EngineBoardAdapter()) {
+    init(
+        engine: any SudokuBoardEngine = EngineBoardAdapter(),
+        detect: @escaping @Sendable (CGImage) throws -> CGImage = { try BoardDetector.detectAndCorrect($0) },
+        recognize: @escaping @Sendable (CGImage, Int) throws -> RecognitionResult
+            = { try PhotoImportViewModel.recognize($0, size: $1) }
+    ) {
         let guessed = Self.guessPreset()
         self.engine = engine
+        self.detect = detect
+        self.recognize = recognize
         preset = guessed
         grid = Grid(rules: guessed.rules)
     }
@@ -47,7 +57,7 @@ final class PhotoImportViewModel {
         if solutionStatus == .multiple {
             texts.append(PhotoImportCopy.multipleSolutions)
         }
-        if solutionStatus == .none {
+        if solutionStatus == .noSolution {
             texts.append(PhotoImportCopy.noSolution)
         }
         return texts
@@ -55,18 +65,25 @@ final class PhotoImportViewModel {
 
     /// 找棋盘并识别。重活放到后台线程，不卡界面。
     func load(image: CGImage) async {
+        requestToken += 1
+        let token = requestToken
         isLoading = true
         errorMessage = nil
         let size = preset.rules.size
+        let detect = detect
+        let recognize = recognize
         do {
             let output = try await Task.detached {
-                let corrected = try BoardDetector.detectAndCorrect(image)
-                let recognized = try Self.recognize(corrected, size: size)
+                let corrected = try detect(image)
+                let recognized = try recognize(corrected, size)
                 return (corrected, recognized)
             }.value
-            correctedImage = output.0
-            apply(result: output.1)
+            guard token == requestToken else { return } // 旧请求的结果丢掉
+            if apply(result: output.1) {
+                correctedImage = output.0
+            }
         } catch {
+            guard token == requestToken else { return }
             fail(with: error)
         }
         isLoading = false
@@ -74,41 +91,51 @@ final class PhotoImportViewModel {
 
     /// 换尺寸后用缓存的校正图重新识别；还没有图就只改尺寸。
     func changeSize(_ newPreset: BoardPreset) async {
-        preset = newPreset
+        requestToken += 1
+        let token = requestToken
         guard let image = correctedImage else {
+            preset = newPreset
             grid = Grid(rules: newPreset.rules)
+            isLoading = false
             refreshChecks()
             return
         }
         isLoading = true
         errorMessage = nil
         let size = newPreset.rules.size
+        let recognize = recognize
         do {
             let recognized = try await Task.detached {
-                try Self.recognize(image, size: size)
+                try recognize(image, size)
             }.value
+            guard token == requestToken else { return }
             apply(result: recognized)
         } catch {
+            guard token == requestToken else { return }
             fail(with: error)
         }
         isLoading = false
     }
 
     /// 用识别结果覆盖当前格子和待确认集合。
-    func apply(result newResult: RecognitionResult) {
+    @discardableResult
+    func apply(result newResult: RecognitionResult) -> Bool {
+        let newGrid: Grid
         do {
-            grid = try RecognitionGridAdapter.makeGrid(newResult)
+            newGrid = try RecognitionGridAdapter.makeGrid(newResult)
         } catch {
             errorMessage = PhotoImportCopy.recognitionFailed
-            return
+            return false
         }
         if let matched = BoardPreset.allCases.first(where: { $0.rules.size == newResult.size }) {
             preset = matched
         }
+        grid = newGrid // 建盘成功后才改状态
         result = newResult
         reviewIndexes = RecognitionGridAdapter.reviewIndexes(newResult)
         selectedIndex = nil
         refreshChecks()
+        return true
     }
 
     /// 给选中的格子填数字；用户改过的格子不用再复核。
@@ -132,7 +159,7 @@ final class PhotoImportViewModel {
         return SamplePuzzle(rules: rules, givens: grid, solution: solution)
     }
 
-    nonisolated private static func recognize(_ image: CGImage, size: Int) throws -> RecognitionResult {
+    nonisolated static func recognize(_ image: CGImage, size: Int) throws -> RecognitionResult {
         let recognizer = BoardRecognizer(recognizer: VisionCellTextRecognizer())
         return try recognizer.recognize(squareImage: image, size: size)
     }
@@ -165,7 +192,7 @@ final class PhotoImportViewModel {
         }
         switch engine.solutionCount(grid, rules: rules, limit: 2) {
         case 0:
-            solutionStatus = .none
+            solutionStatus = .noSolution
         case 1:
             solutionStatus = .unique
         default:
