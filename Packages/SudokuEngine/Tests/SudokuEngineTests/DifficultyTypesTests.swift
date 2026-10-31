@@ -25,7 +25,7 @@ final class DifficultyTypesTests: XCTestCase {
         XCTAssertEqual(Technique.xyWing.difficulty, .hard)
         XCTAssertEqual(Technique.nakedQuad.difficulty, .expert)
         XCTAssertEqual(Technique.hiddenQuad.difficulty, .expert)
-        XCTAssertEqual(Technique.chain.difficulty, .expert)
+        XCTAssertEqual(Technique.simpleColoring.difficulty, .expert)
         XCTAssertEqual(Technique.trialAndError.difficulty, .expert)
     }
 
