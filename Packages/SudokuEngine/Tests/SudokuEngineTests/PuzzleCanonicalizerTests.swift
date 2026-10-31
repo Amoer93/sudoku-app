@@ -35,35 +35,37 @@ private func rotate180(_ grid: Grid) -> Grid { transformed(grid) { (8 - $0, 8 - 
 private func rotate270(_ grid: Grid) -> Grid { transformed(grid) { ($1, 8 - $0) } }
 private func hMirror(_ grid: Grid) -> Grid { transformed(grid) { (8 - $0, $1) } }
 private func vMirror(_ grid: Grid) -> Grid { transformed(grid) { ($0, 8 - $1) } }
-private func swapBands(_ grid: Grid, a: Int, b: Int) -> Grid {
+private func swapBands(_ grid: Grid, first: Int, second: Int) -> Grid {
     transformed(grid) { row, column in
         let band = row / 3
         let offset = row % 3
-        let sourceRow = band == a ? b * 3 + offset : (band == b ? a * 3 + offset : row)
+        let sourceRow = band == first ? second * 3 + offset : (band == second ? first * 3 + offset : row)
         return (sourceRow, column)
     }
 }
-private func swapStacks(_ grid: Grid, a: Int, b: Int) -> Grid {
+private func swapStacks(_ grid: Grid, first: Int, second: Int) -> Grid {
     transformed(grid) { row, column in
         let stack = column / 3
         let offset = column % 3
-        let sourceColumn = stack == a ? b * 3 + offset : (stack == b ? a * 3 + offset : column)
+        let sourceColumn = stack == first ? second * 3 + offset : (stack == second ? first * 3 + offset : column)
         return (row, sourceColumn)
     }
 }
-private func swapRowsInBand(_ grid: Grid, band: Int, a: Int, b: Int) -> Grid {
+private func swapRowsInBand(_ grid: Grid, band: Int, first: Int, second: Int) -> Grid {
     transformed(grid) { row, column in
         let currentBand = row / 3
         let offset = row % 3
-        let sourceOffset = currentBand == band ? (offset == a ? b : (offset == b ? a : offset)) : offset
+        let sourceOffset =
+            currentBand == band ? (offset == first ? second : (offset == second ? first : offset)) : offset
         return (currentBand * 3 + sourceOffset, column)
     }
 }
-private func swapColumnsInStack(_ grid: Grid, stack: Int, a: Int, b: Int) -> Grid {
+private func swapColumnsInStack(_ grid: Grid, stack: Int, first: Int, second: Int) -> Grid {
     transformed(grid) { row, column in
         let currentStack = column / 3
         let offset = column % 3
-        let sourceOffset = currentStack == stack ? (offset == a ? b : (offset == b ? a : offset)) : offset
+        let sourceOffset =
+            currentStack == stack ? (offset == first ? second : (offset == second ? first : offset)) : offset
         return (row, currentStack * 3 + sourceOffset)
     }
 }
@@ -93,10 +95,10 @@ private func randomComposedTransform(_ grid: Grid, rng: inout FingerprintTestRNG
         case 0: result = transpose(result)
         case 1: result = hMirror(result)
         case 2: result = vMirror(result)
-        case 3: result = swapBands(result, a: rng.int(in: 0 ..< 3), b: rng.int(in: 0 ..< 3))
-        case 4: result = swapStacks(result, a: rng.int(in: 0 ..< 3), b: rng.int(in: 0 ..< 3))
+        case 3: result = swapBands(result, first: rng.int(in: 0 ..< 3), second: rng.int(in: 0 ..< 3))
+        case 4: result = swapStacks(result, first: rng.int(in: 0 ..< 3), second: rng.int(in: 0 ..< 3))
         case 5: result = relabel(result, permutation: randomDigitPermutation(rng: &rng))
-        case 6: result = swapRowsInBand(result, band: rng.int(in: 0 ..< 3), a: 0, b: 1)
+        case 6: result = swapRowsInBand(result, band: rng.int(in: 0 ..< 3), first: 0, second: 1)
         default: break
         }
     }
@@ -117,7 +119,8 @@ private func allPuzzles() throws -> [Grid] {
         let grid = try gridFrom(puzzle)
         grids += [transpose(grid), relabel(grid, permutation: randomDigitPermutation(rng: &rng))]
     }
-    grids += [Grid(rules: .nineByNine), try gridFrom("123456789456789123789123456214365897365897214897214365531642978642978531978531642")]
+    let solved = "123456789456789123789123456214365897365897214897214365531642978642978531978531642"
+    grids += [Grid(rules: .nineByNine), try gridFrom(solved)]
     return grids
 }
 final class PuzzleCanonicalizerTests: XCTestCase {
@@ -128,10 +131,10 @@ final class PuzzleCanonicalizerTests: XCTestCase {
         let digitPerm = randomDigitPermutation(rng: &rng)
         let transforms: [(Grid) -> Grid] = [
             transpose, rotate90, rotate180, rotate270, hMirror, vMirror,
-            { swapBands($0, a: 0, b: 2) },
-            { swapRowsInBand($0, band: 1, a: 0, b: 2) },
-            { swapStacks($0, a: 0, b: 1) },
-            { swapColumnsInStack($0, stack: 2, a: 0, b: 1) },
+            { swapBands($0, first: 0, second: 2) },
+            { swapRowsInBand($0, band: 1, first: 0, second: 2) },
+            { swapStacks($0, first: 0, second: 1) },
+            { swapColumnsInStack($0, stack: 2, first: 0, second: 1) },
             { relabel($0, permutation: digitPerm) }
         ]
         for transform in transforms {
@@ -139,7 +142,8 @@ final class PuzzleCanonicalizerTests: XCTestCase {
         }
         var compositionRng = FingerprintTestRNG(seed: 42)
         for _ in 0 ..< 20 {
-            XCTAssertEqual(PuzzleCanonicalizer.fingerprint(randomComposedTransform(grid, rng: &compositionRng), rules: .nineByNine), fingerprint)
+            let transformed = randomComposedTransform(grid, rng: &compositionRng)
+            XCTAssertEqual(PuzzleCanonicalizer.fingerprint(transformed, rules: .nineByNine), fingerprint)
         }
     }
     func testDifferentPuzzlesHaveDifferentFingerprints() throws {
@@ -158,7 +162,8 @@ final class PuzzleCanonicalizerTests: XCTestCase {
         XCTAssertEqual(fingerprint.value.first { $0 != "0" }, "1")
         let data = try JSONEncoder().encode(fingerprint)
         XCTAssertEqual(try JSONDecoder().decode(PuzzleFingerprint.self, from: data), fingerprint)
-        XCTAssertEqual(try XCTUnwrap(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? String), fingerprint.value)
+        let json = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
+        XCTAssertEqual(try XCTUnwrap(json as? String), fingerprint.value)
     }
     func testFingerprintPerformance() throws {
         let grids = try allPuzzles()
