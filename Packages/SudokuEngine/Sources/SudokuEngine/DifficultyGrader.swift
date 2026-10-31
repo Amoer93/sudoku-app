@@ -97,10 +97,14 @@ private func gradingSteps() -> [GradingStep] {
         GradingStep(.pointing) { $0.applyPointing() },
         GradingStep(.boxLineReduction) { $0.applyBoxLineReduction() },
         GradingStep(.nakedPair) { $0.applyNakedSubset(size: 2) },
+        GradingStep(.xWing) { $0.applyXWing() },
         GradingStep(.hiddenPair) { $0.applyHiddenSubset(size: 2) },
         GradingStep(.nakedTriple) { $0.applyNakedSubset(size: 3) },
+        GradingStep(.swordfish) { $0.applySwordfish() },
         GradingStep(.hiddenTriple) { $0.applyHiddenSubset(size: 3) },
+        GradingStep(.xyWing) { $0.applyXYWing() },
         GradingStep(.nakedQuad) { $0.applyNakedSubset(size: 4) },
         GradingStep(.hiddenQuad) { $0.applyHiddenSubset(size: 4) },
+        GradingStep(.simpleColoring) { $0.applySimpleColoring() },
     ]
 }

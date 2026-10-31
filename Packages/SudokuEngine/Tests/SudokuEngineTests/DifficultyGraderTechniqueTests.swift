@@ -125,4 +125,95 @@ final class DifficultyGraderTechniqueTests: XCTestCase {
         remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 5 }, board: &board)
         XCTAssertFalse(board.applyBoxLineReduction())
     }
+
+    // MARK: - 鱼型技巧
+
+    func testXWingEliminatesFromColumns() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        for row in [0, 1] {
+            let kept = [row * 9 + 5, row * 9 + 7]
+            remove(digit: 5, from: rowCells(row).filter { !kept.contains($0) }, board: &board)
+        }
+        XCTAssertTrue(board.applyXWing())
+        XCTAssertFalse(hasCandidate(board, digit: 5, at: 25))
+    }
+
+    func testXWingDoesNothingWithoutAlignedPair() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        remove(digit: 5, from: rowCells(0).filter { $0 != 5 && $0 != 7 && $0 != 8 }, board: &board)
+        remove(digit: 5, from: rowCells(1).filter { $0 != 14 && $0 != 16 }, board: &board)
+        XCTAssertFalse(board.applyXWing())
+    }
+
+    func testSwordfishEliminatesFromColumns() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        for row in [0, 4, 8] {
+            let kept = [row * 9 + 2, row * 9 + 3, row * 9 + 7]
+            remove(digit: 5, from: rowCells(row).filter { !kept.contains($0) }, board: &board)
+        }
+        XCTAssertTrue(board.applySwordfish())
+        XCTAssertFalse(hasCandidate(board, digit: 5, at: 16))
+    }
+
+    func testSwordfishDoesNothingWhenSpanningFourColumns() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        // 三行的候选列合起来有 4 列（2、3、7、8），构不成剑鱼
+        let keptColumns = [0: [2, 7], 4: [3, 8], 8: [2, 8]]
+        for (row, columns) in keptColumns {
+            let kept = columns.map { row * 9 + $0 }
+            remove(digit: 5, from: rowCells(row).filter { !kept.contains($0) }, board: &board)
+        }
+        XCTAssertFalse(board.applySwordfish())
+    }
+
+    // MARK: - 链式技巧
+
+    func testXYWingEliminatesZ() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        // pivot cell 0，两个钳子分别在同一行、同一列且不同宫，夹角 victim 为 cell 40。
+        board.candidates[0] = mask([1, 2])
+        board.candidates[4] = mask([1, 3])
+        board.candidates[36] = mask([2, 3])
+        board.candidates[40] = mask([3, 4])
+        XCTAssertTrue(board.applyXYWing())
+        XCTAssertFalse(hasCandidate(board, digit: 3, at: 40))
+    }
+
+    func testXYWingDoesNothingWhenPincersDoNotShareZ() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        board.candidates[0] = mask([1, 2])
+        board.candidates[1] = mask([1, 3])
+        board.candidates[9] = mask([2, 4])
+        XCTAssertFalse(board.applyXYWing())
+    }
+
+    func testSimpleColoringEliminatesSameColor() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 1 }, board: &board)
+        remove(digit: 4, from: colCells(0).filter { $0 != 0 && $0 != 9 }, board: &board)
+        XCTAssertTrue(board.applySimpleColoring())
+        XCTAssertTrue(hasCandidate(board, digit: 4, at: 0))
+        XCTAssertFalse(hasCandidate(board, digit: 4, at: 1))
+        XCTAssertFalse(hasCandidate(board, digit: 4, at: 9))
+    }
+
+    func testSimpleColoringDoesNothingWithoutConjugatePair() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        remove(digit: 5, from: rowCells(0).filter { $0 != 0 && $0 != 1 && $0 != 7 }, board: &board)
+        XCTAssertFalse(board.applySimpleColoring())
+    }
+
+    func testSimpleColoringEliminatesCellSeeingBothColors() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        // 共轭链 2 - 0 - 27 - 28（数字 4）：0、28 同色（唯一解中的 4），2、27 同色
+        remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 2 }, board: &board)
+        remove(digit: 4, from: colCells(0).filter { $0 != 0 && $0 != 27 }, board: &board)
+        remove(digit: 4, from: rowCells(3).filter { $0 != 27 && $0 != 28 }, board: &board)
+        // 10 与 0、2 同宫，两种颜色都看到，应删去候选 4（同色格互不相见，不走同色分支）
+        XCTAssertTrue(board.applySimpleColoring())
+        XCTAssertFalse(hasCandidate(board, digit: 4, at: 10))
+        for cell in [0, 2, 27, 28] {
+            XCTAssertTrue(hasCandidate(board, digit: 4, at: cell))
+        }
+    }
 }
