@@ -70,4 +70,45 @@ final class ImportBannerStateTests: XCTestCase {
         await model.importTask?.value
         XCTAssertNotNil(model.importNotice)
     }
+
+    func testConfirmImportOfFourByFourStaysPlayableAndSkipsBank() async throws {
+        // persist 在 actor 里跑，计数要线程安全
+        let counter = PersistCounter()
+        let importer = LibraryImporter(bank: try PuzzleBank.load(userData: nil)) { _ in counter.increment() }
+        let model = PhotoImportViewModel(importer: importer)
+        let empty = CellRecognition(digit: nil, confidence: 0.9, status: .empty)
+        var cells = [CellRecognition](repeating: empty, count: 16)
+        cells[0] = CellRecognition(digit: 1, confidence: 0.9, status: .certain)
+        XCTAssertTrue(model.apply(result: RecognitionResult(size: 4, cells: cells)))
+
+        let puzzle = model.confirmImport()
+        // 4x4 不入库，但题目要能正常开局
+        XCTAssertEqual(puzzle.rules.size, 4)
+        XCTAssertEqual(puzzle.givens.cells, model.grid.cells)
+        let board = BoardViewModel(title: "4x4", puzzle: puzzle)
+        XCTAssertEqual(board.rules.size, 4)
+
+        await model.importTask?.value
+        XCTAssertEqual(model.importNotice?.text, LibraryCopy.message(.unsupportedSize))
+        XCTAssertNil(model.importNotice?.existingEntry)
+        XCTAssertEqual(counter.count, 0)
+    }
+
+    /// 数存盘次数的小工具，加锁后可以跨线程用。
+    private final class PersistCounter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+
+        var count: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+
+        func increment() {
+            lock.lock()
+            value += 1
+            lock.unlock()
+        }
+    }
 }
