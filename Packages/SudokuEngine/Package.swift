@@ -13,7 +13,7 @@ let package = Package(
         .library(name: "SudokuEngine", type: .static, targets: ["SudokuEngine"]),
     ],
     targets: [
-        .target(name: "SudokuEngine"),
+        .target(name: "SudokuEngine", resources: [.process("Resources")]),
         .testTarget(name: "SudokuEngineTests", dependencies: ["SudokuEngine"]),
     ],
     swiftLanguageModes: [.v5]
