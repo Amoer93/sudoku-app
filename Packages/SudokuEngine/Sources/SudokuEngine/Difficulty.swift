@@ -22,7 +22,7 @@ public enum Difficulty: Int, Codable, CaseIterable, Comparable, Sendable {
 public enum Technique: Int, Codable, CaseIterable, Comparable, Sendable {
     case nakedSingle, hiddenSingle, nakedPair, hiddenPair, pointing,
          boxLineReduction, nakedTriple, hiddenTriple, nakedQuad,
-         hiddenQuad, xWing, swordfish, xyWing, chain, trialAndError
+         hiddenQuad, xWing, swordfish, xyWing, simpleColoring, trialAndError
 
     public static func < (left: Technique, right: Technique) -> Bool {
         left.rawValue < right.rawValue
