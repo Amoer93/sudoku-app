@@ -69,7 +69,7 @@ public struct PuzzleBank: Codable, Sendable {
             throw PuzzleBankLoadError.missingResource
         }
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .millisecondsSince1970
         return try decoder.decode([PuzzleBankEntry].self, from: Data(contentsOf: url))
     }
 
@@ -77,13 +77,18 @@ public struct PuzzleBank: Codable, Sendable {
         try load(builtinBundle: .module, userData: userData)
     }
 
+    /// 加载内置题库，并可选地合并用户数据。
+    ///
+    /// 如果 `userData` 为 `nil`，仅返回内置题库。用户数据损坏时会抛出错误，
+    /// 调用方应捕获错误并回退为仅加载内置题库。
+    /// 注意：此方法不校验用户条目的 `id`（指纹）与 `size`。
     public static func load(builtinBundle: Bundle, userData: Data?) throws -> PuzzleBank {
         let builtins = try loadBuiltin(bundle: builtinBundle)
         var seen = Set(builtins.map(\.id))
         var entries = builtins
         if let data = userData {
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            decoder.dateDecodingStrategy = .millisecondsSince1970
             let userEntries = try decoder.decode([PuzzleBankEntry].self, from: data)
             for entry in userEntries where entry.source == .userUpload && seen.insert(entry.id).inserted {
                 entries.append(entry)
@@ -92,6 +97,9 @@ public struct PuzzleBank: Codable, Sendable {
         return PuzzleBank(entries: entries)
     }
 
+    /// 将题目加入题库。
+    ///
+    /// - Parameter grid: 题面，仅应传入原始给定的数字（givens），不要传已填写或含用户输入的盘面。
     public mutating func add(
         _ grid: Grid,
         rules: Rules,
@@ -140,8 +148,7 @@ public struct PuzzleBank: Codable, Sendable {
         using generator: inout G
     ) -> PuzzleBankEntry? {
         let filtered = entries(difficulty: difficulty, source: source, sort: .difficultyAscending)
-        guard !filtered.isEmpty else { return nil }
-        return filtered[Int(generator.next() % UInt64(filtered.count))]
+        return filtered.randomElement(using: &generator)
     }
 
     public func randomEntry(difficulty: Difficulty? = nil, source: PuzzleSource? = nil) -> PuzzleBankEntry? {
@@ -151,7 +158,7 @@ public struct PuzzleBank: Codable, Sendable {
 
     public func userEntriesData() throws -> Data {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .millisecondsSince1970
         encoder.outputFormatting = .sortedKeys
         let userEntries = entries
             .filter { $0.source == .userUpload }

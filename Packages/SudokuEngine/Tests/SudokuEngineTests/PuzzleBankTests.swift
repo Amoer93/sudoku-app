@@ -108,13 +108,27 @@ final class PuzzleBankTests: XCTestCase {
         let bank = PuzzleBank(entries: [user, builtin, duplicate])
         let data = try bank.userEntriesData()
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .millisecondsSince1970
         let decoded = try decoder.decode([PuzzleBankEntry].self, from: data)
         XCTAssertEqual(decoded.count, 2)
         XCTAssertTrue(decoded.allSatisfy { $0.source == .userUpload })
         let restored = try PuzzleBank.load(builtinBundle: .module, userData: data)
         XCTAssertEqual(restored.entries(source: .userUpload).map(\.id.value), ["user1"])
         XCTAssertTrue(restored.entries(source: .builtin).isEmpty)
+    }
+
+    func testPersistencePreservesSubsecondAddedAt() throws {
+        let original = entry(
+            id: "subsecond",
+            difficulty: .medium,
+            score: 15,
+            source: .userUpload,
+            addedAt: Date(timeIntervalSince1970: 1_234_567.891)
+        )
+        let bank = PuzzleBank(entries: [original])
+        let data = try bank.userEntriesData()
+        let restored = try PuzzleBank.load(builtinBundle: .module, userData: data)
+        XCTAssertEqual(restored.entries(source: .userUpload).first, original)
     }
 
     func testLoadBuiltin() throws {
