@@ -21,8 +21,12 @@ final class PhotoImportViewModel {
     private(set) var solutionStatus: SolutionStatus = .unknown
     private(set) var errorMessage: String?
     private(set) var isLoading = false
+    private(set) var importNotice: ImportNotice?
     var selectedIndex: Int?
 
+    /// 后台入库任务；测试里 await 它的结果。
+    @ObservationIgnored private(set) var importTask: Task<Void, Never>?
+    @ObservationIgnored private let importer: LibraryImporter?
     @ObservationIgnored private let engine: any SudokuBoardEngine
     @ObservationIgnored private var correctedImage: CGImage?
     @ObservationIgnored private let detect: @Sendable (CGImage) throws -> CGImage
@@ -30,12 +34,14 @@ final class PhotoImportViewModel {
     @ObservationIgnored private var requestToken = 0 // 新请求加一，丢弃旧结果
 
     init(
+        importer: LibraryImporter? = nil,
         engine: any SudokuBoardEngine = EngineBoardAdapter(),
         detect: @escaping @Sendable (CGImage) throws -> CGImage = { try BoardDetector.detectAndCorrect($0) },
         recognize: @escaping @Sendable (CGImage, Int) throws -> RecognitionResult
             = { try PhotoImportViewModel.recognize($0, size: $1) }
     ) {
         let guessed = Self.guessPreset()
+        self.importer = importer
         self.engine = engine
         self.detect = detect
         self.recognize = recognize
@@ -154,6 +160,18 @@ final class PhotoImportViewModel {
     /// 视图读取照片失败时，用这个显示统一的错误提示。
     func reportLoadFailure() {
         errorMessage = PhotoImportCopy.recognitionFailed
+    }
+
+    /// 确认导入：马上返回题目开局；入库在后台做，提示等结果出来再设。入库失败也能开局。
+    func confirmImport() -> SamplePuzzle {
+        importNotice = nil
+        importTask = Task { [grid, rules = preset.rules] in
+            guard let importer else {
+                return
+            }
+            importNotice = await importer.add(grid, rules: rules)
+        }
+        return makePuzzle()
     }
 
     /// 生成可以开局的题目。有冲突也照常导入。

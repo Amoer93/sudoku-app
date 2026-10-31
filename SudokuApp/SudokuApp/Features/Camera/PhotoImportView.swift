@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 拍照导入：选图、识别、核对，然后导入成一局。
 struct PhotoImportView: View {
-    @State private var model = PhotoImportViewModel()
+    @State private var model = PhotoImportViewModel(importer: .live())
     @State private var pickerItem: PhotosPickerItem?
     @State private var isCameraShown = false
     // 点“导入”时才生成题目，避免视图刷新时反复求解
@@ -36,7 +36,7 @@ struct PhotoImportView: View {
         }
         .navigationDestination(isPresented: $isBoardShown) {
             if let puzzle = importedPuzzle {
-                BoardScreen(preset: model.preset, puzzle: puzzle)
+                BoardScreen(preset: model.preset, puzzle: puzzle, notice: model.importNotice)
             }
         }
         .fullScreenCover(isPresented: $isCameraShown) {
@@ -93,7 +93,7 @@ struct PhotoImportView: View {
                 onClear: { model.clear() }
             )
             Button {
-                importedPuzzle = model.makePuzzle()
+                importedPuzzle = model.confirmImport()
                 isBoardShown = true
             } label: {
                 Text(PhotoImportCopy.importButton).frame(maxWidth: .infinity)
