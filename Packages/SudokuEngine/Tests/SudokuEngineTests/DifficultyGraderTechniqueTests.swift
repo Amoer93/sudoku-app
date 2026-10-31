@@ -155,6 +155,17 @@ final class DifficultyGraderTechniqueTests: XCTestCase {
         XCTAssertFalse(hasCandidate(board, digit: 5, at: 16))
     }
 
+    func testSwordfishDoesNothingWhenSpanningFourColumns() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        // 三行的候选列合起来有 4 列（2、3、7、8），构不成剑鱼
+        let keptColumns = [0: [2, 7], 4: [3, 8], 8: [2, 8]]
+        for (row, columns) in keptColumns {
+            let kept = columns.map { row * 9 + $0 }
+            remove(digit: 5, from: rowCells(row).filter { !kept.contains($0) }, board: &board)
+        }
+        XCTAssertFalse(board.applySwordfish())
+    }
+
     // MARK: - 链式技巧
 
     func testXYWingEliminatesZ() throws {
@@ -176,19 +187,33 @@ final class DifficultyGraderTechniqueTests: XCTestCase {
         XCTAssertFalse(board.applyXYWing())
     }
 
-    func testChainEliminatesSameColor() throws {
+    func testSimpleColoringEliminatesSameColor() throws {
         var board = try XCTUnwrap(emptyBoard())
         remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 1 }, board: &board)
         remove(digit: 4, from: colCells(0).filter { $0 != 0 && $0 != 9 }, board: &board)
-        XCTAssertTrue(board.applyChain())
+        XCTAssertTrue(board.applySimpleColoring())
         XCTAssertTrue(hasCandidate(board, digit: 4, at: 0))
         XCTAssertFalse(hasCandidate(board, digit: 4, at: 1))
         XCTAssertFalse(hasCandidate(board, digit: 4, at: 9))
     }
 
-    func testChainDoesNothingWithoutConjugatePair() throws {
+    func testSimpleColoringDoesNothingWithoutConjugatePair() throws {
         var board = try XCTUnwrap(emptyBoard())
         remove(digit: 5, from: rowCells(0).filter { $0 != 0 && $0 != 1 && $0 != 7 }, board: &board)
-        XCTAssertFalse(board.applyChain())
+        XCTAssertFalse(board.applySimpleColoring())
+    }
+
+    func testSimpleColoringEliminatesCellSeeingBothColors() throws {
+        var board = try XCTUnwrap(emptyBoard())
+        // 共轭链 2 - 0 - 27 - 28（数字 4）：0、28 同色（唯一解中的 4），2、27 同色
+        remove(digit: 4, from: rowCells(0).filter { $0 != 0 && $0 != 2 }, board: &board)
+        remove(digit: 4, from: colCells(0).filter { $0 != 0 && $0 != 27 }, board: &board)
+        remove(digit: 4, from: rowCells(3).filter { $0 != 27 && $0 != 28 }, board: &board)
+        // 10 与 0、2 同宫，两种颜色都看到，应删去候选 4（同色格互不相见，不走同色分支）
+        XCTAssertTrue(board.applySimpleColoring())
+        XCTAssertFalse(hasCandidate(board, digit: 4, at: 10))
+        for cell in [0, 2, 27, 28] {
+            XCTAssertTrue(hasCandidate(board, digit: 4, at: cell))
+        }
     }
 }

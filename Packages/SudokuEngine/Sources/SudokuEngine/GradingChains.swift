@@ -36,17 +36,18 @@ extension GradingBoard {
         return changed
     }
 
-    mutating func applyChain() -> Bool {
+    mutating func applySimpleColoring() -> Bool {
         for digit in 1 ... 9 {
             let graph = buildConjugateGraph(digit: digit)
             var visited = Set<Int>()
-            for start in graph.keys {
+            // 按下标排序遍历，保证结果与字典哈希顺序无关
+            for start in graph.keys.sorted() {
                 guard visited.insert(start).inserted else { continue }
                 var component = [start]
                 var colors: [Int: Bool] = [start: true]
                 var queue = [start]
                 while let node = queue.popLast() {
-                    for neighbor in graph[node, default: []] {
+                    for neighbor in graph[node, default: []].sorted() {
                         guard visited.insert(neighbor).inserted else { continue }
                         colors[neighbor] = !(colors[node] ?? true)
                         component.append(neighbor)

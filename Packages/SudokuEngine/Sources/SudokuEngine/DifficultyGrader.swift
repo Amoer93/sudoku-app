@@ -105,6 +105,6 @@ private func gradingSteps() -> [GradingStep] {
         GradingStep(.xyWing) { $0.applyXYWing() },
         GradingStep(.nakedQuad) { $0.applyNakedSubset(size: 4) },
         GradingStep(.hiddenQuad) { $0.applyHiddenSubset(size: 4) },
-        GradingStep(.chain) { $0.applyChain() },
+        GradingStep(.simpleColoring) { $0.applySimpleColoring() },
     ]
 }
