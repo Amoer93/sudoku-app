@@ -165,11 +165,18 @@ final class PhotoImportViewModel {
     /// 确认导入：马上返回题目开局；入库在后台做，提示等结果出来再设。入库失败也能开局。
     func confirmImport() -> SamplePuzzle {
         importNotice = nil
+        // 先取消上一次入库，避免旧结果盖掉新提示
+        importTask?.cancel()
         importTask = Task { [grid, rules = preset.rules] in
             guard let importer else {
                 return
             }
-            importNotice = await importer.add(grid, rules: rules)
+            let notice = await importer.add(grid, rules: rules)
+            // 被取消就不写提示
+            guard !Task.isCancelled else {
+                return
+            }
+            importNotice = notice
         }
         return makePuzzle()
     }

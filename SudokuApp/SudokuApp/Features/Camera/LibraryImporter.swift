@@ -1,3 +1,4 @@
+import os
 import SudokuEngine
 
 /// 拍照导入的入库文案。
@@ -17,7 +18,10 @@ struct ImportNotice: Equatable {
 }
 
 /// 把识别出的题加进题库，成功后存盘。指纹和评级很慢，所以放在 actor 里，不占主线程。
+/// 注意：题库在内存里只属于本实例，多个实例会各存各的、互相覆盖文件。
+/// 所以正式环境必须只用一个实例，请用 `LibraryImporter.shared`。
 actor LibraryImporter {
+    private static let logger = Logger(subsystem: "SudokuApp", category: "LibraryImporter")
     private var bank: PuzzleBank
     private let persist: @Sendable (PuzzleBank) throws -> Void
 
@@ -25,6 +29,9 @@ actor LibraryImporter {
         self.bank = bank
         self.persist = persist
     }
+
+    /// 全 App 共用的唯一实例，避免多个实例互相覆盖存盘文件。
+    static let shared = live()
 
     /// 正式环境：从文件读题库，成功入库后写回文件。
     static func live(store: PuzzleBankStore = PuzzleBankStore()) -> LibraryImporter {
@@ -63,7 +70,8 @@ actor LibraryImporter {
         do {
             try persist(bank)
         } catch {
-            // 存盘失败只丢持久化，内存里的题库仍可用
+            // 存盘失败只丢持久化，内存里的题库仍可用；记一行日志方便排查
+            Self.logger.error("Failed to save puzzle bank: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

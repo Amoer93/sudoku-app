@@ -37,12 +37,12 @@ final class ImportBannerState {
         notice = nil
     }
 
-    /// 重复题时，把题库里已有的那条转成可玩的题。
-    func existingPuzzle() -> SamplePuzzle? {
+    /// 重复题时，把题库里已有的那条转成可玩的题（求解在后台线程）。
+    func existingPuzzle() async -> SamplePuzzle? {
         guard let existing = notice?.existingEntry else {
             return nil
         }
-        return LibraryViewModel(bank: PuzzleBank(entries: [existing])).puzzle(for: existing)
+        return await LibraryViewModel.resolvePuzzle(for: existing)
     }
 }
 

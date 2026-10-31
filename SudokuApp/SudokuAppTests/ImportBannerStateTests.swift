@@ -41,7 +41,7 @@ final class ImportBannerStateTests: XCTestCase {
         XCTAssertEqual(twoStep.notice?.text, ImportBankCopy.ungradable)
     }
 
-    func testDuplicateExposesExistingEntryAction() throws {
+    func testDuplicateExposesExistingEntryAction() async throws {
         let existing = PuzzleBankEntry(
             id: PuzzleFingerprint(value: "x"),
             size: 9,
@@ -54,7 +54,8 @@ final class ImportBannerStateTests: XCTestCase {
         )
         state.show(ImportNotice(text: ImportBankCopy.duplicate, existingEntry: existing))
         XCTAssertEqual(state.notice?.existingEntry, existing)
-        XCTAssertEqual(state.existingPuzzle()?.givens.cells, existing.givens)
+        let puzzle = await state.existingPuzzle()
+        XCTAssertEqual(puzzle?.givens.cells, existing.givens)
     }
 
     func testConfirmImportReturnsPuzzleFirstThenSetsNotice() async throws {

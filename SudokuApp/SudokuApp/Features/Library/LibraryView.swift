@@ -4,6 +4,9 @@ import SwiftUI
 /// 题库列表：可筛选、排序，点一行开始玩。
 struct LibraryView: View {
     @Bindable var model: LibraryViewModel
+    // 点击时才求解，结果放这里触发跳转
+    @State private var route: PlayRoute?
+    @State private var isOpening = false
 
     var body: some View {
         let entries = model.visibleEntries
@@ -21,15 +24,28 @@ struct LibraryView: View {
         }
         .navigationTitle(LibraryCopy.entry)
         .toolbar { ToolbarItem(placement: .primaryAction) { filterMenu } }
+        .navigationDestination(item: $route) { route in
+            BoardScreen(preset: route.preset, puzzle: route.puzzle).id(route.id)
+        }
     }
 
     private func list(_ entries: [PuzzleBankEntry]) -> some View {
         List(entries) { entry in
-            NavigationLink {
-                BoardScreen(preset: .nine, puzzle: model.puzzle(for: entry)).id(entry.id)
-            } label: {
-                row(entry)
-            }
+            Button { open(entry) } label: { row(entry) }
+                .buttonStyle(.plain)
+        }
+    }
+
+    /// 点击后才求解（后台线程），完成再跳转；求解期间忽略重复点击。
+    private func open(_ entry: PuzzleBankEntry) {
+        guard !isOpening else {
+            return
+        }
+        isOpening = true
+        Task {
+            let puzzle = await LibraryViewModel.resolvePuzzle(for: entry)
+            route = PlayRoute(preset: .nine, puzzle: puzzle)
+            isOpening = false
         }
     }
 
