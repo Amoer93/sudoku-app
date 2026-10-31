@@ -180,4 +180,119 @@ final class PuzzleCanonicalizerTests: XCTestCase {
             XCTAssertLessThan(averageMs, 100.0)
         #endif
     }
+    func testFingerprintIsIdempotent() throws {
+        var grids = try allPuzzles()
+        var rng = FingerprintTestRNG(seed: 20261101)
+        for _ in 0 ..< 20 {
+            let grid = try gridFrom(puzzles[rng.int(in: 0 ..< puzzles.count)])
+            grids.append(randomComposedTransform(grid, rng: &rng))
+        }
+        #if DEBUG
+            let sample = grids.prefix(4)
+        #else
+            let sample = grids.prefix(40)
+        #endif
+        for grid in sample {
+            let fp = PuzzleCanonicalizer.fingerprint(grid, rules: .nineByNine)
+            let digits = fp.value.compactMap { $0.wholeNumberValue }
+            let grid2 = try Grid(size: 9, cells: digits)
+            XCTAssertEqual(PuzzleCanonicalizer.fingerprint(grid2, rules: .nineByNine), fp)
+        }
+    }
+    func testFingerprintMatchesExhaustiveSearch() throws {
+        #if DEBUG
+            throw XCTSkip("exhaustive 搜索在 debug 模式下过慢，仅在 release 下运行")
+        #else
+            let testGrids = try puzzles.prefix(3).map { try gridFrom($0) }
+            for grid in testGrids {
+                XCTAssertEqual(
+                    PuzzleCanonicalizer.fingerprint(grid, rules: .nineByNine).value,
+                    exhaustiveCanonicalString(for: grid)
+                )
+            }
+        #endif
+    }
 }
+
+#if !DEBUG
+    private let referencePermutationsOfThree: [[Int]] = [
+        [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]
+    ]
+
+    /// 穷举所有几何对称并首次出现重标号，作为 fingerprint 的参考实现。
+    private func exhaustiveCanonicalString(for grid: Grid) -> String {
+        let cells = grid.cells.map { UInt8($0) }
+        var best = [UInt8](repeating: 9, count: 81)
+        let perms = referencePermutationsOfThree
+        let transposed = transposedCells(cells)
+        for source in [cells, transposed] {
+            for bandPerm in perms {
+                for rows0 in perms {
+                    for rows1 in perms {
+                        for rows2 in perms {
+                            let rowPerms = [rows0, rows1, rows2]
+                            var rows = [UInt8](repeating: 0, count: 81)
+                            for newBand in 0 ..< 3 {
+                                let oldBand = bandPerm[newBand]
+                                for newRowInBand in 0 ..< 3 {
+                                    let oldRow = oldBand * 3 + rowPerms[newBand][newRowInBand]
+                                    let newRow = newBand * 3 + newRowInBand
+                                    for col in 0 ..< 9 { rows[newRow * 9 + col] = source[oldRow * 9 + col] }
+                                }
+                            }
+                            updateBest(for: rows, best: &best)
+                        }
+                    }
+                }
+            }
+        }
+        return String(best.map { Character(Unicode.Scalar($0 + 48)) })
+    }
+
+    /// 对固定行序枚举所有列宫/宫内列排列并更新最优。
+    private func updateBest(for rows: [UInt8], best: inout [UInt8]) {
+        let perms = referencePermutationsOfThree
+        for stackPerm in perms {
+            for cols0 in perms {
+                for cols1 in perms {
+                    for cols2 in perms {
+                        let candidate = canonicalCandidate(
+                            rows: rows, stackPerm: stackPerm, colPerms: [cols0, cols1, cols2]
+                        )
+                        if candidate.lexicographicallyPrecedes(best) { best = candidate }
+                    }
+                }
+            }
+        }
+    }
+
+    private func transposedCells(_ cells: [UInt8]) -> [UInt8] {
+        var result = [UInt8](repeating: 0, count: 81)
+        for row in 0 ..< 9 {
+            for col in 0 ..< 9 { result[col * 9 + row] = cells[row * 9 + col] }
+        }
+        return result
+    }
+
+    private func canonicalCandidate(rows: [UInt8], stackPerm: [Int], colPerms: [[Int]]) -> [UInt8] {
+        var candidate = [UInt8](repeating: 0, count: 81)
+        var map = [UInt8](repeating: 0, count: 10)
+        var nextLabel: UInt8 = 1
+        var pos = 0
+        for row in 0 ..< 9 {
+            for colIndex in 0 ..< 9 {
+                let stack = colIndex / 3
+                let sourceCol = stackPerm[stack] * 3 + colPerms[stack][colIndex % 3]
+                let value = rows[row * 9 + sourceCol]
+                var canon: UInt8 = 0
+                if value != 0 {
+                    if map[Int(value)] == 0 { map[Int(value)] = nextLabel; nextLabel += 1 }
+                    canon = map[Int(value)]
+                }
+                candidate[pos] = canon
+                pos += 1
+            }
+        }
+        return candidate
+    }
+#endif
