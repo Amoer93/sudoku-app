@@ -21,8 +21,8 @@ private func gridFrom(_ string: String) throws -> Grid {
 }
 private func transformed(_ grid: Grid, mapping: (Int, Int) -> (Int, Int)) -> Grid {
     var result = Grid(rules: .nineByNine)
-    for row in 0..<9 {
-        for column in 0..<9 {
+    for row in 0 ..< 9 {
+        for column in 0 ..< 9 {
             let (sourceRow, sourceColumn) = mapping(row, column)
             result[row: row, column: column] = grid[row: sourceRow, column: sourceColumn]
         }
@@ -69,8 +69,8 @@ private func swapColumnsInStack(_ grid: Grid, stack: Int, a: Int, b: Int) -> Gri
 }
 private func relabel(_ grid: Grid, permutation: [Int]) -> Grid {
     var result = grid
-    for row in 0..<9 {
-        for column in 0..<9 {
+    for row in 0 ..< 9 {
+        for column in 0 ..< 9 {
             let value = result[row: row, column: column]
             if value != 0 {
                 result[row: row, column: column] = permutation[value - 1]
@@ -80,23 +80,23 @@ private func relabel(_ grid: Grid, permutation: [Int]) -> Grid {
     return result
 }
 private func randomDigitPermutation(rng: inout FingerprintTestRNG) -> [Int] {
-    var elements = Array(1...9)
-    for index in 0..<9 {
-        elements.swapAt(index, rng.int(in: index..<9))
+    var elements = Array(1 ... 9)
+    for index in 0 ..< 9 {
+        elements.swapAt(index, rng.int(in: index ..< 9))
     }
     return elements
 }
 private func randomComposedTransform(_ grid: Grid, rng: inout FingerprintTestRNG) -> Grid {
     var result = grid
-    for _ in 0..<10 {
-        switch rng.int(in: 0..<7) {
+    for _ in 0 ..< 10 {
+        switch rng.int(in: 0 ..< 7) {
         case 0: result = transpose(result)
         case 1: result = hMirror(result)
         case 2: result = vMirror(result)
-        case 3: result = swapBands(result, a: rng.int(in: 0..<3), b: rng.int(in: 0..<3))
-        case 4: result = swapStacks(result, a: rng.int(in: 0..<3), b: rng.int(in: 0..<3))
+        case 3: result = swapBands(result, a: rng.int(in: 0 ..< 3), b: rng.int(in: 0 ..< 3))
+        case 4: result = swapStacks(result, a: rng.int(in: 0 ..< 3), b: rng.int(in: 0 ..< 3))
         case 5: result = relabel(result, permutation: randomDigitPermutation(rng: &rng))
-        case 6: result = swapRowsInBand(result, band: rng.int(in: 0..<3), a: 0, b: 1)
+        case 6: result = swapRowsInBand(result, band: rng.int(in: 0 ..< 3), a: 0, b: 1)
         default: break
         }
     }
@@ -138,7 +138,7 @@ final class PuzzleCanonicalizerTests: XCTestCase {
             XCTAssertEqual(PuzzleCanonicalizer.fingerprint(transform(grid), rules: .nineByNine), fingerprint)
         }
         var compositionRng = FingerprintTestRNG(seed: 42)
-        for _ in 0..<20 {
+        for _ in 0 ..< 20 {
             XCTAssertEqual(PuzzleCanonicalizer.fingerprint(randomComposedTransform(grid, rng: &compositionRng), rules: .nineByNine), fingerprint)
         }
     }
@@ -154,11 +154,11 @@ final class PuzzleCanonicalizerTests: XCTestCase {
         let fingerprint = PuzzleCanonicalizer.fingerprint(grid, rules: .nineByNine)
         XCTAssertEqual(fingerprint, PuzzleCanonicalizer.fingerprint(grid, rules: .nineByNine))
         XCTAssertEqual(fingerprint.value.count, 81)
-        XCTAssertTrue(fingerprint.value.allSatisfy { ("0"..."9").contains($0) })
+        XCTAssertTrue(fingerprint.value.allSatisfy { ("0" ... "9").contains($0) })
         XCTAssertEqual(fingerprint.value.first { $0 != "0" }, "1")
         let data = try JSONEncoder().encode(fingerprint)
         XCTAssertEqual(try JSONDecoder().decode(PuzzleFingerprint.self, from: data), fingerprint)
-        XCTAssertEqual(try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? String), fingerprint.value)
+        XCTAssertEqual(try XCTUnwrap(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? String), fingerprint.value)
     }
     func testFingerprintPerformance() throws {
         let grids = try allPuzzles()
@@ -171,9 +171,9 @@ final class PuzzleCanonicalizerTests: XCTestCase {
         let averageMs = Double(totalNanoseconds) / Double(grids.count) / 1_000_000.0
         print("Average fingerprint time: \(averageMs) ms over \(grids.count) puzzles")
         #if DEBUG
-        XCTAssertLessThan(averageMs, 2000.0)
+            XCTAssertLessThan(averageMs, 2000.0)
         #else
-        XCTAssertLessThan(averageMs, 100.0)
+            XCTAssertLessThan(averageMs, 100.0)
         #endif
     }
 }

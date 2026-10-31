@@ -28,7 +28,7 @@ private func canonicalString(for cells: [Int]) -> String {
     var best = [UInt8](repeating: 9, count: 81)
     var candidate = [UInt8](repeating: 0, count: 81)
     let transposedGrid = transposed(grid)
-    for transposedFlag in 0..<2 {
+    for transposedFlag in 0 ..< 2 {
         let source = transposedFlag == 1 ? transposedGrid : grid
         for bandPerm in permutationsOfThree {
             for rows0 in permutationsOfThree {
@@ -46,8 +46,8 @@ private func canonicalString(for cells: [Int]) -> String {
 }
 private func transposed(_ grid: [UInt8]) -> [UInt8] {
     var result = [UInt8](repeating: 0, count: 81)
-    for row in 0..<9 {
-        for column in 0..<9 {
+    for row in 0 ..< 9 {
+        for column in 0 ..< 9 {
             result[column * 9 + row] = grid[row * 9 + column]
         }
     }
@@ -55,13 +55,13 @@ private func transposed(_ grid: [UInt8]) -> [UInt8] {
 }
 private func permutedRows(source: [UInt8], bandPerm: [Int], rowPerms: [[Int]]) -> [UInt8] {
     var result = [UInt8](repeating: 0, count: 81)
-    for newBand in 0..<3 {
+    for newBand in 0 ..< 3 {
         let oldBand = bandPerm[newBand]
-        for newRowInBand in 0..<3 {
+        for newRowInBand in 0 ..< 3 {
             let oldRowInBand = rowPerms[newBand][newRowInBand]
             let oldRow = oldBand * 3 + oldRowInBand
             let newRow = newBand * 3 + newRowInBand
-            for column in 0..<9 {
+            for column in 0 ..< 9 {
                 result[newRow * 9 + column] = source[oldRow * 9 + column]
             }
         }
@@ -70,11 +70,15 @@ private func permutedRows(source: [UInt8], bandPerm: [Int], rowPerms: [[Int]]) -
 }
 /// 搜索状态：首行逐列确定列序，以首行前缀与当前最优比较做早期剪枝。
 private struct SearchState {
-    var map = [UInt8](repeating: 0, count: 10)
-    var nextLabel: UInt8 = 1
+    // 数字映射与列序都按 4 位打包进 UInt64，复制状态时无堆分配
+    var map: UInt64 = 0
+    var nextLabel: UInt64 = 1
     var better = false
     var pos = 0
-    var columns = [Int](repeating: 0, count: 9)
+    var columns: UInt64 = 0
+
+    func column(at index: Int) -> Int { Int((columns >> UInt64(index * 4)) & 0xF) }
+    mutating func setColumn(_ column: Int, at index: Int) { columns |= UInt64(column) << UInt64(index * 4) }
 }
 
 /// 递归选择列宫顺序与宫内列序（6 × 6^3 种），首行剪枝后再比较其余各行。
@@ -92,7 +96,7 @@ private func searchStack(
             var pruned = false
             for index in 0 ..< 3 {
                 let column = originalStack * 3 + columnPerm[index]
-                next.columns[next.pos] = column
+                next.setColumn(column, at: next.pos)
                 if !place(rows[column], state: &next, best: best, candidate: &candidate) {
                     pruned = true
                     break
@@ -113,7 +117,7 @@ private func finishRemainingRows(
     var state = state
     for row in 1 ..< 9 {
         for index in 0 ..< 9 {
-            let value = rows[row * 9 + state.columns[index]]
+            let value = rows[row * 9 + state.column(at: index)]
             if !place(value, state: &state, best: best, candidate: &candidate) { return }
         }
     }
@@ -127,12 +131,14 @@ private func place(
     var canon: UInt8 = 0
     if value != 0 {
         // 按首次出现顺序重标号
-        let index = Int(value)
-        if state.map[index] == 0 {
-            state.map[index] = state.nextLabel
+        let shift = UInt64(value) * 4
+        var label = (state.map >> shift) & 0xF
+        if label == 0 {
+            label = state.nextLabel
+            state.map |= label << shift
             state.nextLabel += 1
         }
-        canon = state.map[index]
+        canon = UInt8(label)
     }
     candidate[state.pos] = canon
     if !state.better {
