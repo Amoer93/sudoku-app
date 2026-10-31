@@ -5,11 +5,14 @@ import SwiftUI
 /// 避免每次 init 都新建模型、在主线程多算一次 `conflicts`。
 struct BoardScreen: View {
     let preset: BoardPreset
+    /// 指定题目（如拍照导入）；为空就用内置题
+    let puzzle: SamplePuzzle?
     let engine: any SudokuBoardEngine
     @State private var model: BoardViewModel?
 
-    init(preset: BoardPreset, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
+    init(preset: BoardPreset, puzzle: SamplePuzzle? = nil, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
         self.preset = preset
+        self.puzzle = puzzle
         self.engine = engine
     }
 
@@ -20,8 +23,8 @@ struct BoardScreen: View {
             ProgressView()
                 .onAppear {
                     // 只建一次；之后父视图重建不会再进这里
-                    let puzzle = FixtureLibrary.puzzle(for: preset)
-                    model = BoardViewModel(title: preset.title, puzzle: puzzle, engine: engine)
+                    let start = puzzle ?? FixtureLibrary.puzzle(for: preset)
+                    model = BoardViewModel(title: preset.title, puzzle: start, engine: engine)
                 }
         }
     }
