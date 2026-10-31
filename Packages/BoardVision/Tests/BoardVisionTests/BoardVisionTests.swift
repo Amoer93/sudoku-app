@@ -225,6 +225,9 @@ final class BoardVisionTests: XCTestCase {
             XCTAssertGreaterThan(corrected.width, 100)
         } catch BoardVisionError.boardNotFound {
             // 个别环境的 Vision 可能不认合成图，跳过而不是误报失败
+            // 在日志里留下明确记录，免得跳过被忽略
+            print("[BoardVision] skipping testDetectorCorrectsClearSquare: "
+                + "Vision found no rectangle in the synthetic image")
             throw XCTSkip("Vision found no rectangle in the synthetic image")
         }
     }
