@@ -46,4 +46,6 @@ public enum BoardVisionError: Error, Equatable {
     case imageNotSquare
     case imageProcessingFailed
     case cellCountMismatch
+    case boardNotFound
+    case invalidThresholds
 }
