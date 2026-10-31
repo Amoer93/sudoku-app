@@ -43,8 +43,16 @@ enum LibraryCopy {
     static func message(_ error: BankError) -> String {
         switch error {
         case .duplicate: return "这道题已经在题库里"
-        case .ungradable: return "无法评定难度"
+        case .ungradable(let reason): return message(reason)
         case .unsupportedSize: return "该尺寸暂不入库"
+        }
+    }
+    /// 评不出难度的原因：无解和多解分开说，其他情况用通用文案。
+    static func message(_ reason: GradeError) -> String {
+        switch reason {
+        case .noSolution: return "题目无解，未入库"
+        case .multipleSolutions: return "题目不唯一，未入库"
+        @unknown default: return ImportBankCopy.ungradable
         }
     }
 }
