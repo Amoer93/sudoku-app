@@ -59,6 +59,22 @@ final class LibraryViewModel {
         await Task.detached { makePuzzle(from: entry) }.value
     }
 
+    /// 正在求解的那一行；nil 表示没有在打开。
+    private(set) var openingEntryID: PuzzleFingerprint?
+
+    /// 是否正在打开某一题（用来显示转圈、忽略重复点击）。
+    var isOpening: Bool { openingEntryID != nil }
+
+    /// 点击一行：求解期间 isOpening 为 true，结束后复位；正在打开时直接返回 nil。
+    func openPuzzle(for entry: PuzzleBankEntry) async -> SamplePuzzle? {
+        guard !isOpening else {
+            return nil
+        }
+        openingEntryID = entry.id
+        defer { openingEntryID = nil }
+        return await Self.resolvePuzzle(for: entry)
+    }
+
     /// 随机抽题（很快），再在后台求解；抽不到返回 nil。
     func newGamePuzzleAsync(difficulty: Difficulty) async -> SamplePuzzle? {
         var generator = SystemRandomNumberGenerator()

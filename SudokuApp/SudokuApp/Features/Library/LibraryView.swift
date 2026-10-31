@@ -6,7 +6,6 @@ struct LibraryView: View {
     @Bindable var model: LibraryViewModel
     // 点击时才求解，结果放这里触发跳转
     @State private var route: PlayRoute?
-    @State private var isOpening = false
 
     var body: some View {
         let entries = model.visibleEntries
@@ -36,16 +35,13 @@ struct LibraryView: View {
         }
     }
 
-    /// 点击后才求解（后台线程），完成再跳转；求解期间忽略重复点击。
+    /// 点击后才求解（后台线程），完成再跳转；求解期间忽略重复点击（由 model 判断）。
     private func open(_ entry: PuzzleBankEntry) {
-        guard !isOpening else {
-            return
-        }
-        isOpening = true
         Task {
-            let puzzle = await LibraryViewModel.resolvePuzzle(for: entry)
+            guard let puzzle = await model.openPuzzle(for: entry) else {
+                return
+            }
             route = PlayRoute(preset: .nine, puzzle: puzzle)
-            isOpening = false
         }
     }
 
@@ -65,7 +61,16 @@ struct LibraryView: View {
             Text(LibraryCopy.title(entry.source))
                 .font(.caption).padding(.horizontal, 8).padding(.vertical, 2)
                 .background(.quaternary, in: Capsule())
+            // 被点的那一行用转圈代替箭头
+            if model.openingEntryID == entry.id {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
         }
+        .contentShape(Rectangle()) // 整行都能点
         .accessibilityElement(children: .combine)
     }
 
