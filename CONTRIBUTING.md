@@ -30,6 +30,25 @@ swiftformat --lint .
 
 改了 App 的话，在 Xcode 里跑 `SudokuApp` 的单元测试。测试不能依赖网络，随机数要固定种子。
 
+## 小改动先在本机测
+
+CI 只在 PR 上跑，而且 GitHub Actions 的分钟数有限。小改动请先在 Mac 上测过再推送：
+
+```bash
+swiftlint lint --strict
+swiftformat --lint .
+swift test --package-path Packages/SudokuEngine
+swift test --package-path Packages/BoardVision
+xcodebuild test -project SudokuApp/SudokuApp.xcodeproj -scheme SudokuApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
+
+测完关掉模拟器，免得它一直占资源：
+
+```bash
+xcrun simctl shutdown all
+osascript -e 'quit app "Simulator"'
+```
+
 ## 审查与合并
 
 - 作者不能审查自己的代码。
