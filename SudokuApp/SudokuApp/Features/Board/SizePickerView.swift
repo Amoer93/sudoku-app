@@ -19,6 +19,9 @@ struct SizePickerView: View {
                         presetLabel(preset)
                     }
                 }
+                NavigationLink(PhotoImportCopy.entry) {
+                    PhotoImportView()
+                }
             }
             .navigationTitle(HomeCopy.title)
         }
