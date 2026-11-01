@@ -85,4 +85,4 @@ SE 基准值参考 [SukakuExplainer](https://github.com/SudokuMonster/SukakuExpl
 
 ### 持久化与内置去重
 
-用户上传题目通过 `userEntriesData()` 编码为 JSON（ISO 8601 日期、键按字母序），仅包含 `source == .userUpload` 的条目。应用负责写入文件。启动时使用 `PuzzleBank.load(builtinBundle:userData:)`：先加载 `BuiltinPuzzles.json`，再解码用户数据，丢弃来源不是 `.userUpload` 的条目以及与内置/前面条目重复的题目。
+用户上传题目通过 `userEntriesData()` 编码为 JSON（日期 `addedAt` 编码为 millisecondsSince1970 数字时间戳，即 Unix 纪元毫秒数、键按字母序），仅包含 `source == .userUpload` 的条目。应用负责写入文件。启动时使用 `PuzzleBank.load(builtinBundle:userData:)`：先加载 `BuiltinPuzzles.json`，再解码用户数据，丢弃来源不是 `.userUpload` 的条目以及与内置/前面条目重复的题目。
