@@ -116,6 +116,7 @@ final class PuzzleBankTests: XCTestCase {
         XCTAssertEqual(restored.entries(source: .userUpload).map(\.id.value), ["user1"])
         // 用户数据里的 builtin 条目不会被带入；内置题库来自资源文件
         XCTAssertFalse(restored.entries(source: .builtin).contains { $0.id.value == "builtin1" })
+        XCTAssertEqual(restored.entries(source: .builtin).count, try PuzzleBank.loadBuiltin().count)
     }
 
     func testPersistencePreservesSubsecondAddedAt() throws {
@@ -133,7 +134,54 @@ final class PuzzleBankTests: XCTestCase {
     }
 
     func testLoadBuiltin() throws {
-        XCTAssertFalse(try PuzzleBank.loadBuiltin().isEmpty)
+        let builtin = try PuzzleBank.loadBuiltin()
+        // 简单、中等、困难各 30 题；专家只收不需要试数的题，实际也是 30 题
+        let expectedExpertCount = 30
+        XCTAssertEqual(builtin.filter { $0.difficulty == .easy }.count, 30)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .medium }.count, 30)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .hard }.count, 30)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .expert }.count, expectedExpertCount)
+        XCTAssertEqual(builtin.count, 90 + expectedExpertCount)
+        XCTAssertTrue(builtin.allSatisfy { $0.source == .builtin })
+        XCTAssertTrue(builtin.allSatisfy { $0.size == 9 })
+    }
+
+    func testUserEntryWithBuiltinFingerprintIsDropped() throws {
+        let builtin = try PuzzleBank.loadBuiltin()
+        let realBuiltin = try XCTUnwrap(builtin.first)
+        let clash = PuzzleBankEntry(
+            id: realBuiltin.id,
+            size: 9,
+            givens: realBuiltin.givens,
+            difficulty: .hard,
+            seRating: 9,
+            score: 99,
+            source: .userUpload,
+            addedAt: Date(timeIntervalSince1970: 5)
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        let data = try encoder.encode([clash])
+        let bank = try PuzzleBank.load(builtinBundle: .module, userData: data)
+        XCTAssertEqual(bank.entries.count, builtin.count)
+        XCTAssertTrue(bank.entries(source: .userUpload).isEmpty)
+        let kept = try XCTUnwrap(bank.entries.first { $0.id == realBuiltin.id })
+        XCTAssertEqual(kept, realBuiltin)
+        XCTAssertEqual(kept.source, .builtin)
+    }
+
+    func testUserEntriesDataExcludesBuiltinWithRealBank() throws {
+        var bank = try PuzzleBank.load(builtinBundle: .module, userData: nil)
+        let builtinCount = bank.entries.count
+        guard case .success(let added) = bank.add(makeGrid(difficultyEasyPuzzle), rules: .nineByNine) else {
+            return XCTFail("expected success")
+        }
+        XCTAssertEqual(bank.entries.count, builtinCount + 1)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        let decoded = try decoder.decode([PuzzleBankEntry].self, from: bank.userEntriesData())
+        XCTAssertEqual(decoded.map(\.id), [added.id])
+        XCTAssertTrue(decoded.allSatisfy { $0.source == .userUpload })
     }
 }
 

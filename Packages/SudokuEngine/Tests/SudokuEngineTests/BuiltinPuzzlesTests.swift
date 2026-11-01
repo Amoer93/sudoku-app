@@ -4,7 +4,10 @@ import XCTest
 
 /// 校验内置题库 BuiltinPuzzles.json 的内容。
 final class BuiltinPuzzlesTests: XCTestCase {
-    private let expectedPerTier = 30
+    private let expectedEasyMediumHardCount = 30
+    /// 内置专家题只收不需要试数的题，实际生成了这么多。
+    private let expectedExpertCount = 30
+    private let minimumEasyGivens = 30
 
     private func loadEntries() throws -> [PuzzleBankEntry] {
         try PuzzleBank.loadBuiltin(bundle: .module)
@@ -24,18 +27,48 @@ final class BuiltinPuzzlesTests: XCTestCase {
         }
     }
 
-    func testEveryTierHasEnoughPuzzles() throws {
+    func testTierCountsAreExact() throws {
         let entries = try loadEntries()
+        let expected: [Difficulty: Int] = [
+            .easy: expectedEasyMediumHardCount,
+            .medium: expectedEasyMediumHardCount,
+            .hard: expectedEasyMediumHardCount,
+            .expert: expectedExpertCount
+        ]
         for tier in Difficulty.allCases {
             let count = entries.filter { $0.difficulty == tier }.count
-            XCTAssertGreaterThanOrEqual(count, expectedPerTier, "tier \(tier)")
+            XCTAssertEqual(count, expected[tier], "tier \(tier)")
+        }
+    }
+
+    func testEasyEntriesHaveEnoughGivens() throws {
+        for entry in try loadEntries() where entry.difficulty == .easy {
+            let givenCount = entry.givens.filter { $0 != Grid.emptyCell }.count
+            XCTAssertGreaterThanOrEqual(givenCount, minimumEasyGivens, entry.id.value)
+        }
+    }
+
+    func testNoBuiltinEntryNeedsTrialAndError() throws {
+        for entry in try loadEntries() {
+            let grid = try makePuzzleGrid(entry)
+            let grade = try DifficultyGrader.grade(grid, rules: .nineByNine).get()
+            XCTAssertNotEqual(grade.hardestTechnique, .trialAndError, entry.id.value)
+            XCTAssertLessThan(entry.seRating, 11, entry.id.value)
         }
     }
 
     func testFingerprintsAreUniqueAndMatchIds() throws {
         let entries = try loadEntries()
+        // 唯一性检查对所有条目都做，因为很便宜
         XCTAssertEqual(Set(entries.map(\.id)).count, entries.count)
-        for entry in entries {
+        // 重算指纹较慢：Debug 下只抽样（每 10 个取 1 个），Release 下全查
+        #if DEBUG
+            let step = 10
+        #else
+            let step = 1
+        #endif
+        for index in stride(from: 0, to: entries.count, by: step) {
+            let entry = entries[index]
             let grid = try makePuzzleGrid(entry)
             XCTAssertEqual(PuzzleCanonicalizer.fingerprint(grid, rules: .nineByNine), entry.id)
         }
