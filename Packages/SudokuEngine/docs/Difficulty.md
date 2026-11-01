@@ -63,7 +63,7 @@ SE 基准值参考 [SukakuExplainer](https://github.com/SudokuMonster/SukakuExpl
 
 ## 题库（PuzzleBank）
 
-`PuzzleBank` 是 9×9 标准数独的本地题库模型。每条记录 `PuzzleBankEntry` 包含规范指纹 `id`、题目尺寸、`givens`（行优先，0 表示空格）、难度、SE 评分、加权总分、来源与入库时间。指纹来自 `PuzzleCanonicalizer.fingerprint`，保证几何对称与数字重标后的等价题目只占用同一个条目。
+`PuzzleBank` 是 9×9 标准数独的本地题库模型。每条记录 `PuzzleBankEntry` 包含规范指纹 `id`、题目尺寸、`givens`（行优先，0 表示空格）、难度、可选的 `tierOverride`、SE 评分、加权总分、来源与入库时间。指纹来自 `PuzzleCanonicalizer.fingerprint`，保证几何对称与数字重标后的等价题目只占用同一个条目。
 
 ### 入库流程
 
@@ -86,3 +86,14 @@ SE 基准值参考 [SukakuExplainer](https://github.com/SudokuMonster/SukakuExpl
 ### 持久化与内置去重
 
 用户上传题目通过 `userEntriesData()` 编码为 JSON（日期 `addedAt` 编码为 millisecondsSince1970 数字时间戳，即 Unix 纪元毫秒数、键按字母序），仅包含 `source == .userUpload` 的条目。应用负责写入文件。启动时使用 `PuzzleBank.load(builtinBundle:userData:)`：先加载 `BuiltinPuzzles.json`，再解码用户数据，丢弃来源不是 `.userUpload` 的条目以及与内置/前面条目重复的题目。
+
+### 档位覆盖（tierOverride）
+
+`PuzzleBankEntry.tierOverride` 是可选字段，只给内置题用，用来人工指定档位：
+
+- `difficulty` 始终是“实际档位”，筛选、排序、随机抽题都只看它，所以使用方不需要改代码。
+- 有 `tierOverride` 时，`difficulty` 等于覆盖值；`seRating`、`score` 仍是评分器的真实结果。`tierOverride` 只是记录“这题的档位和评分器不一致”。
+- 为 `nil` 时不会写进 JSON；旧的 JSON 或用户数据没有这个字段也能正常读取。
+- 用户上传的题不能带覆盖：初始化和解码时都会把 `tierOverride` 丢掉，`add` 入库也一直按评分器结果分档。`DifficultyGrader` 本身不受影响。
+
+目前内置题库用它把 30 道 SE 6.5（单数字染色、不需要试数）的题放进困难档。因此内置题库是：简单 30、中等 30、困难 60（30 道评分为困难 + 30 道带 `tierOverride = .hard`）、专家 30（全部需要试数，SE 11.0）。

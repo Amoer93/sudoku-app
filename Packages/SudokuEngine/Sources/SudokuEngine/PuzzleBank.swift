@@ -10,7 +10,11 @@ public struct PuzzleBankEntry: Codable, Identifiable, Equatable, Hashable, Senda
     public let id: PuzzleFingerprint
     public let size: Int
     public let givens: [Int]
+    /// 实际使用的档位（筛选、排序都看它）。有 `tierOverride` 时就等于覆盖值。
     public let difficulty: Difficulty
+    /// 仅内置题使用：记录该题被人工指定了档位，和评分器给出的档位不同。
+    /// 为 nil 时 `difficulty` 就是评分器的结果；nil 不会写进 JSON。
+    public let tierOverride: Difficulty?
     public let seRating: Double
     public let score: Int
     public let source: PuzzleSource
@@ -24,16 +28,40 @@ public struct PuzzleBankEntry: Codable, Identifiable, Equatable, Hashable, Senda
         seRating: Double,
         score: Int,
         source: PuzzleSource,
-        addedAt: Date
+        addedAt: Date,
+        tierOverride: Difficulty? = nil
     ) {
         self.id = id
         self.size = size
         self.givens = givens
-        self.difficulty = difficulty
+        // 用户上传的题不允许覆盖档位，直接丢掉
+        let allowedOverride = source == .builtin ? tierOverride : nil
+        self.difficulty = allowedOverride ?? difficulty
+        self.tierOverride = allowedOverride
         self.seRating = seRating
         self.score = score
         self.source = source
         self.addedAt = addedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, size, givens, difficulty, tierOverride, seRating, score, source, addedAt
+    }
+
+    /// 自定义解码：旧数据没有 `tierOverride` 也能读；经由 init 统一处理覆盖规则。
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(PuzzleFingerprint.self, forKey: .id),
+            size: try container.decode(Int.self, forKey: .size),
+            givens: try container.decode([Int].self, forKey: .givens),
+            difficulty: try container.decode(Difficulty.self, forKey: .difficulty),
+            seRating: try container.decode(Double.self, forKey: .seRating),
+            score: try container.decode(Int.self, forKey: .score),
+            source: try container.decode(PuzzleSource.self, forKey: .source),
+            addedAt: try container.decode(Date.self, forKey: .addedAt),
+            tierOverride: try container.decodeIfPresent(Difficulty.self, forKey: .tierOverride)
+        )
     }
 }
 

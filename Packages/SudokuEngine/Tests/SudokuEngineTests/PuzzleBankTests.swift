@@ -135,15 +135,59 @@ final class PuzzleBankTests: XCTestCase {
 
     func testLoadBuiltin() throws {
         let builtin = try PuzzleBank.loadBuiltin()
-        // 简单、中等、困难各 30 题；专家只收不需要试数的题，实际也是 30 题
-        let expectedExpertCount = 30
+        // 简单 30、中等 30、困难 60（含 30 道指定放入的逻辑专家题）、专家 30（需要试数）
         XCTAssertEqual(builtin.filter { $0.difficulty == .easy }.count, 30)
         XCTAssertEqual(builtin.filter { $0.difficulty == .medium }.count, 30)
-        XCTAssertEqual(builtin.filter { $0.difficulty == .hard }.count, 30)
-        XCTAssertEqual(builtin.filter { $0.difficulty == .expert }.count, expectedExpertCount)
-        XCTAssertEqual(builtin.count, 90 + expectedExpertCount)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .hard }.count, 60)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .expert }.count, 30)
+        XCTAssertEqual(builtin.count, 150)
         XCTAssertTrue(builtin.allSatisfy { $0.source == .builtin })
         XCTAssertTrue(builtin.allSatisfy { $0.size == 9 })
+    }
+
+    func testTierOverrideRoundTripsAndIsOmittedWhenNil() throws {
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        let overridden = PuzzleBankEntry(
+            id: PuzzleFingerprint(value: "o"), size: 9, givens: [], difficulty: .expert,
+            seRating: 6.5, score: 1, source: .builtin, addedAt: Date(timeIntervalSince1970: 0),
+            tierOverride: .hard
+        )
+        XCTAssertEqual(overridden.difficulty, .hard)
+        let restored = try decoder.decode(PuzzleBankEntry.self, from: encoder.encode(overridden))
+        XCTAssertEqual(restored, overridden)
+        XCTAssertEqual(restored.tierOverride, .hard)
+        let plain = entry(
+            id: "p",
+            difficulty: .easy,
+            score: 1,
+            source: .builtin,
+            addedAt: Date(timeIntervalSince1970: 0)
+        )
+        let json = String(decoding: try encoder.encode(plain), as: UTF8.self)
+        XCTAssertFalse(json.contains("tierOverride"))
+        // 旧数据没有这个字段也能读
+        let old = try decoder.decode(PuzzleBankEntry.self, from: encoder.encode(plain))
+        XCTAssertNil(old.tierOverride)
+    }
+
+    func testUserUploadIgnoresTierOverride() throws {
+        let user = PuzzleBankEntry(
+            id: PuzzleFingerprint(value: "u"), size: 9, givens: [], difficulty: .medium,
+            seRating: 3.0, score: 1, source: .userUpload, addedAt: Date(timeIntervalSince1970: 0),
+            tierOverride: .hard
+        )
+        XCTAssertNil(user.tierOverride)
+        XCTAssertEqual(user.difficulty, .medium)
+        // 用户数据里手写的 tierOverride 读入时也会被忽略
+        let json = Data(#"""
+        [{"id":"u2","size":9,"givens":[],"difficulty":2,"tierOverride":3,"seRating":4.0,"score":1,
+        "source":"userUpload","addedAt":0}]
+        """#.utf8)
+        let bank = try PuzzleBank.load(builtinBundle: .module, userData: json)
+        let loaded = try XCTUnwrap(bank.entries(source: .userUpload).first)
+        XCTAssertNil(loaded.tierOverride)
+        XCTAssertEqual(loaded.difficulty, .hard)
     }
 
     func testUserEntryWithBuiltinFingerprintIsDropped() throws {
