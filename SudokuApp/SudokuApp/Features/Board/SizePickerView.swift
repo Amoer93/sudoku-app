@@ -21,6 +21,13 @@ struct SizePickerView: View {
                     ForEach(Difficulty.allCases, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
                 }
                 .pickerStyle(.segmented)
+                // 分段控件放不下副标题，所以选中专家时在下面显示一行
+                if let subtitle = TrialTagCopy.pickerSubtitle(for: difficulty) {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel(TrialTagCopy.accessibilityLabel)
+                }
                 if !library.hasEntries(difficulty: difficulty) {
                     Text(LibraryCopy.difficultyFallback)
                         .font(.caption)

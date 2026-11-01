@@ -93,6 +93,13 @@ final class TrialTagTests: XCTestCase {
         XCTAssertEqual(TrialTagCopy.accessibilityLabel, "需试错：这道题需要假设才能解出")
     }
 
+    func testPickerSubtitleOnlyForExpert() {
+        XCTAssertEqual(TrialTagCopy.pickerSubtitle(for: .expert), TrialTagCopy.text)
+        for difficulty in Difficulty.allCases where difficulty != .expert {
+            XCTAssertNil(TrialTagCopy.pickerSubtitle(for: difficulty))
+        }
+    }
+
     @MainActor
     func testViewModelFillsFlagAsynchronously() async {
         let cache = TrialTagCache { _ in true }

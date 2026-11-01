@@ -5,6 +5,16 @@ import SwiftUI
 enum TrialTagCopy {
     static let text = "需试错"
     static let accessibilityLabel = "需试错：这道题需要假设才能解出"
+
+    /// 难度选择器的副标题。
+    /// 产品决策：专家档就是需要试错的题；
+    /// 单题标签仍然只看 hardestTechnique，不受这里影响。
+    static func pickerSubtitle(for difficulty: Difficulty) -> String? {
+        if difficulty == .expert {
+            return text
+        }
+        return nil
+    }
 }
 
 /// 判断规则：只看评级出的最难技巧，不看难度档、seRating 或分数。
