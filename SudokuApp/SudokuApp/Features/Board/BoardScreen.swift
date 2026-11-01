@@ -7,16 +7,48 @@ struct BoardScreen: View {
     let preset: BoardPreset
     /// 指定题目（如拍照导入）；为空就用内置题
     let puzzle: SamplePuzzle?
+    let notice: ImportNotice?
     let engine: any SudokuBoardEngine
     @State private var model: BoardViewModel?
+    @State private var banner = ImportBannerState()
+    @State private var existingPuzzle: SamplePuzzle?
+    @State private var isExistingShown = false
 
-    init(preset: BoardPreset, puzzle: SamplePuzzle? = nil, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
+    init(
+        preset: BoardPreset,
+        puzzle: SamplePuzzle? = nil,
+        notice: ImportNotice? = nil,
+        engine: any SudokuBoardEngine = EngineBoardAdapter()
+    ) {
         self.preset = preset
         self.puzzle = puzzle
+        self.notice = notice
         self.engine = engine
     }
 
     var body: some View {
+        content
+            .overlay(alignment: .top) {
+                if let current = banner.notice {
+                    ImportNoticeBanner(notice: current, onOpenExisting: openExisting, onDismiss: banner.dismiss)
+                }
+            }
+            .animation(.default, value: banner.notice)
+            .onChange(of: notice) { _, newNotice in
+                // 入库在后台做，提示可能在棋盘出现之后才到
+                if let newNotice {
+                    banner.show(newNotice)
+                }
+            }
+            .navigationDestination(isPresented: $isExistingShown) {
+                if let existingPuzzle {
+                    BoardScreen(preset: .nine, puzzle: existingPuzzle)
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let model {
             BoardContentView(model: model)
         } else {
@@ -25,7 +57,18 @@ struct BoardScreen: View {
                     // 只建一次；之后父视图重建不会再进这里
                     let start = puzzle ?? FixtureLibrary.puzzle(for: preset)
                     model = BoardViewModel(title: preset.title, puzzle: start, engine: engine)
+                    if let notice {
+                        banner.show(notice)
+                    }
                 }
+        }
+    }
+
+    private func openExisting() {
+        Task {
+            existingPuzzle = await banner.existingPuzzle()
+            banner.dismiss()
+            isExistingShown = existingPuzzle != nil
         }
     }
 }
