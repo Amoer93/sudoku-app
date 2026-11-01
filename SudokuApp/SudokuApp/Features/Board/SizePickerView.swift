@@ -21,6 +21,13 @@ struct SizePickerView: View {
                     ForEach(Difficulty.allCases, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
                 }
                 .pickerStyle(.segmented)
+                // 分段控件放不下副标题，所以选中专家时在下面显示一行
+                if let subtitle = TrialTagCopy.pickerSubtitle(for: difficulty) {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel(TrialTagCopy.accessibilityLabel)
+                }
                 if !library.hasEntries(difficulty: difficulty) {
                     Text(LibraryCopy.difficultyFallback)
                         .font(.caption)
@@ -41,7 +48,7 @@ struct SizePickerView: View {
             .onAppear(perform: reloadLibrary)
             .navigationDestination(item: $route) { route in
                 // 每次点击一个新 id：换题时重建 BoardScreen，模型跟着刷新
-                BoardScreen(preset: route.preset, puzzle: route.puzzle).id(route.id)
+                BoardScreen(preset: route.preset, puzzle: route.puzzle, bankEntry: route.entry).id(route.id)
             }
         }
     }
@@ -53,8 +60,8 @@ struct SizePickerView: View {
         }
         isOpening = true
         Task {
-            let puzzle = await startingPuzzle(for: preset)
-            route = PlayRoute(preset: preset, puzzle: puzzle)
+            let draw = await startingDraw(for: preset)
+            route = PlayRoute(preset: preset, puzzle: draw?.puzzle, entry: draw?.entry)
             isOpening = false
         }
     }
@@ -65,9 +72,9 @@ struct SizePickerView: View {
     }
 
     /// 9×9 按所选难度从题库抽题；抽不到或其他尺寸就用内置题
-    private func startingPuzzle(for preset: BoardPreset) async -> SamplePuzzle? {
+    private func startingDraw(for preset: BoardPreset) async -> (entry: PuzzleBankEntry, puzzle: SamplePuzzle)? {
         guard preset == .nine else { return nil }
-        return await library.newGamePuzzleAsync(difficulty: difficulty)
+        return await library.newGameDrawAsync(difficulty: difficulty)
     }
 
     private func presetLabel(_ preset: BoardPreset) -> some View {

@@ -10,7 +10,26 @@ final class LibraryViewModel {
     var difficultyFilter: Difficulty?
     var sourceFilter: PuzzleSource?
     var sort: PuzzleSort = .sourceThenDifficulty
-    init(bank: any PuzzleBankProviding) { self.bank = bank }
+    /// 每题是否需要试错；后台评级完成后才有值，没有值就不显示标签。
+    private(set) var trialFlags: [PuzzleFingerprint: Bool] = [:]
+    private let trialCache: TrialTagCache
+    init(bank: any PuzzleBankProviding, trialCache: TrialTagCache = .shared) {
+        self.bank = bank
+        self.trialCache = trialCache
+    }
+
+    /// 行出现时调用：已有结果就跳过，否则后台评级后写入字典。
+    func loadTrialFlag(for entry: PuzzleBankEntry) async {
+        guard trialFlags[entry.id] == nil else {
+            return
+        }
+        trialFlags[entry.id] = await trialCache.needsTrial(for: entry)
+    }
+
+    /// 这一行要不要显示「需试错」。
+    func needsTrial(_ entry: PuzzleBankEntry) -> Bool {
+        trialFlags[entry.id] ?? false
+    }
 
     var visibleEntries: [PuzzleBankEntry] {
         bank.entries(difficulty: difficultyFilter, source: sourceFilter, sort: sort)
@@ -77,11 +96,16 @@ final class LibraryViewModel {
 
     /// 随机抽题（很快），再在后台求解；抽不到返回 nil。
     func newGamePuzzleAsync(difficulty: Difficulty) async -> SamplePuzzle? {
+        await newGameDrawAsync(difficulty: difficulty)?.puzzle
+    }
+
+    /// 同上，但连抽到的题库条目一起返回，棋盘页要用它显示「需试错」。
+    func newGameDrawAsync(difficulty: Difficulty) async -> (entry: PuzzleBankEntry, puzzle: SamplePuzzle)? {
         var generator = SystemRandomNumberGenerator()
         guard let entry = bank.randomEntry(difficulty: difficulty, source: nil, using: &generator) else {
             return nil
         }
-        return await Self.resolvePuzzle(for: entry)
+        return (entry, await Self.resolvePuzzle(for: entry))
     }
 
     /// 纯计算，不碰界面状态，所以能放在后台线程跑。求不出解就用题面当答案。
@@ -98,6 +122,8 @@ struct PlayRoute: Identifiable, Hashable {
     let id = UUID()
     let preset: BoardPreset
     let puzzle: SamplePuzzle?
+    /// 题来自题库时带上条目，棋盘页据此显示「需试错」
+    var entry: PuzzleBankEntry?
 
     static func == (lhs: PlayRoute, rhs: PlayRoute) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

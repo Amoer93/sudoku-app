@@ -24,7 +24,7 @@ struct LibraryView: View {
         .navigationTitle(LibraryCopy.entry)
         .toolbar { ToolbarItem(placement: .primaryAction) { filterMenu } }
         .navigationDestination(item: $route) { route in
-            BoardScreen(preset: route.preset, puzzle: route.puzzle).id(route.id)
+            BoardScreen(preset: route.preset, puzzle: route.puzzle, bankEntry: route.entry).id(route.id)
         }
     }
 
@@ -41,7 +41,7 @@ struct LibraryView: View {
             guard let puzzle = await model.openPuzzle(for: entry) else {
                 return
             }
-            route = PlayRoute(preset: .nine, puzzle: puzzle)
+            route = PlayRoute(preset: .nine, puzzle: puzzle, entry: entry)
         }
     }
 
@@ -57,6 +57,9 @@ struct LibraryView: View {
     private func row(_ entry: PuzzleBankEntry) -> some View {
         HStack {
             Text(LibraryCopy.title(entry.difficulty)).font(.headline)
+            if model.needsTrial(entry) {
+                TrialTagView()
+            }
             Spacer()
             Text(LibraryCopy.title(entry.source))
                 .font(.caption).padding(.horizontal, 8).padding(.vertical, 2)
@@ -70,6 +73,7 @@ struct LibraryView: View {
                     .foregroundStyle(.tertiary)
             }
         }
+        .task(id: entry.id) { await model.loadTrialFlag(for: entry) }
         .contentShape(Rectangle()) // 整行都能点
         .accessibilityElement(children: .combine)
     }
