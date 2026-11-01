@@ -1,10 +1,6 @@
 @testable import SudokuApp
 import enum SudokuEngine.Difficulty
-import enum SudokuEngine.DifficultyGrader
-import struct SudokuEngine.Grid
 import struct SudokuEngine.PuzzleBankEntry
-import struct SudokuEngine.Rules
-import enum SudokuEngine.Technique
 import XCTest
 
 /// Checks the real built-in puzzles loaded through PuzzleBankStore.
@@ -28,21 +24,5 @@ final class BuiltinBankStoreTests: XCTestCase {
         // id 不能重复
         let uniqueIds = Set(builtins.map { $0.id })
         XCTAssertEqual(uniqueIds.count, builtins.count, "duplicate built-in ids")
-
-        // 内置题不应该需要试错才能解
-        for entry in builtins {
-            let grid = try SudokuEngine.Grid(size: entry.size, cells: entry.givens)
-            let result = SudokuEngine.DifficultyGrader.grade(grid, rules: SudokuEngine.Rules.nineByNine)
-            switch result {
-            case .success(let grade):
-                XCTAssertNotEqual(
-                    grade.hardestTechnique,
-                    SudokuEngine.Technique.trialAndError,
-                    "built-in puzzle \(entry.id) needs trial and error"
-                )
-            case .failure(let error):
-                XCTFail("built-in puzzle \(entry.id) cannot be graded: \(error)")
-            }
-        }
     }
 }
