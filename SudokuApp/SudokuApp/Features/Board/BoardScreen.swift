@@ -1,3 +1,4 @@
+import SudokuEngine
 import SwiftUI
 
 /// 一局棋盘：选格、输入、冲突高亮、撤销和自动解题。
@@ -8,6 +9,8 @@ struct BoardScreen: View {
     /// 指定题目（如拍照导入）；为空就用内置题
     let puzzle: SamplePuzzle?
     let notice: ImportNotice?
+    /// 题来自题库时的条目；用来在顶部显示「需试错」，为空就不显示
+    let bankEntry: PuzzleBankEntry?
     let engine: any SudokuBoardEngine
     @State private var model: BoardViewModel?
     @State private var banner = ImportBannerState()
@@ -18,11 +21,13 @@ struct BoardScreen: View {
         preset: BoardPreset,
         puzzle: SamplePuzzle? = nil,
         notice: ImportNotice? = nil,
+        bankEntry: PuzzleBankEntry? = nil,
         engine: any SudokuBoardEngine = EngineBoardAdapter()
     ) {
         self.preset = preset
         self.puzzle = puzzle
         self.notice = notice
+        self.bankEntry = bankEntry
         self.engine = engine
     }
 
@@ -50,7 +55,7 @@ struct BoardScreen: View {
     @ViewBuilder
     private var content: some View {
         if let model {
-            BoardContentView(model: model)
+            BoardContentView(model: model, bankEntry: bankEntry)
         } else {
             ProgressView()
                 .onAppear {
@@ -76,10 +81,16 @@ struct BoardScreen: View {
 /// 棋盘主体，持有已经创建好的 ViewModel。
 private struct BoardContentView: View {
     @Bindable var model: BoardViewModel
+    let bankEntry: PuzzleBankEntry?
+    // 后台评级完成后才变 true
+    @State private var needsTrial = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if needsTrial {
+                    TrialTagView()
+                }
                 status
                 board
                 controls
@@ -107,6 +118,11 @@ private struct BoardContentView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await model.refreshSolutionCount()
+        }
+        .task {
+            if let bankEntry {
+                needsTrial = await TrialTagCache.shared.needsTrial(for: bankEntry)
+            }
         }
     }
 
