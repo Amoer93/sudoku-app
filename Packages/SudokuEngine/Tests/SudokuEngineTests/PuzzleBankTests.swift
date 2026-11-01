@@ -114,7 +114,8 @@ final class PuzzleBankTests: XCTestCase {
         XCTAssertTrue(decoded.allSatisfy { $0.source == .userUpload })
         let restored = try PuzzleBank.load(builtinBundle: .module, userData: data)
         XCTAssertEqual(restored.entries(source: .userUpload).map(\.id.value), ["user1"])
-        XCTAssertTrue(restored.entries(source: .builtin).isEmpty)
+        // 用户数据里的 builtin 条目不会被带入；内置题库来自资源文件
+        XCTAssertFalse(restored.entries(source: .builtin).contains { $0.id.value == "builtin1" })
     }
 
     func testPersistencePreservesSubsecondAddedAt() throws {
@@ -132,7 +133,7 @@ final class PuzzleBankTests: XCTestCase {
     }
 
     func testLoadBuiltin() throws {
-        XCTAssertEqual(try PuzzleBank.loadBuiltin(), [])
+        XCTAssertFalse(try PuzzleBank.loadBuiltin().isEmpty)
     }
 }
 
