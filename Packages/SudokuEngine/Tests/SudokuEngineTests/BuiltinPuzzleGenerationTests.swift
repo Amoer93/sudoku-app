@@ -11,13 +11,17 @@ import XCTest
 /// `VERIFY_BUILTIN_PUZZLES=1 swift test -c release --filter BuiltinPuzzleGenerationTests`
 final class BuiltinPuzzleGenerationTests: XCTestCase {
     private let perTierGoal = 30
-    /// 每档的目标数量；专家档不收试数题，凑不满 30 题是预期内的。
-    private let expertGoal = 30
-    /// 最多尝试次数。用次数而不是时间，这样结果和机器快慢无关。
+    /// 第一阶段里"逻辑专家题"（评分器判专家、但不需要试数）的数量；它们入库时放进困难档。
+    private let logicExpertGoal = 30
+    /// 第二阶段：需要试数的专家题数量。
+    private let trialExpertGoal = 30
+    /// 每阶段最多尝试次数。用次数而不是时间，这样结果和机器快慢无关。
     private let maxAttempts = 30000
     private let baseSeed: UInt64 = 20_260_101
     /// 简单档至少要有这么多给定数。
     private let easyMinimumGivens = 30
+    /// 试数的 SE 值（见 docs/Difficulty.md）。
+    private let trialAndErrorRating = 11.0
 
     /// 每个难度档用哪些目标给定数去挖题；0 表示挖到极小。
     private let targetGivensByTier: [Difficulty: [Int]] = [
@@ -27,7 +31,7 @@ final class BuiltinPuzzleGenerationTests: XCTestCase {
         .expert: [0, 24, 22, 20]
     ]
 
-    /// 一次生成的结果：文本、每档数量、尝试次数。
+    /// 一次生成的结果：文本、条目、两阶段合计的尝试次数。
     private struct GenerationResult {
         let jsonText: String
         let entries: [PuzzleBankEntry]
@@ -53,8 +57,31 @@ final class BuiltinPuzzleGenerationTests: XCTestCase {
     }
 
     /// 纯函数式生成：只由固定种子和尝试次数上限决定，不读时钟、不写文件。
+    ///
+    /// 第一阶段保持原来的轮流出题逻辑，让已有的 120 题不变；第二阶段接着往后用种子，
+    /// 只收需要试数的专家题。
     private func generateBuiltinPuzzles() throws -> GenerationResult {
-        var entriesByTier: [Difficulty: [String: PuzzleBankEntry]] = [:]
+        var gradedByTier: [Difficulty: [String: PuzzleBankEntry]] = [:]
+        let firstAttempts = collectLogicPuzzles(into: &gradedByTier)
+        var trialEntries: [String: PuzzleBankEntry] = [:]
+        let totalAttempts = collectTrialPuzzles(
+            into: &trialEntries, existing: gradedByTier, startAttempt: firstAttempts
+        )
+        var sorted: [PuzzleBankEntry] = []
+        sorted.append(contentsOf: sortedByID(gradedByTier[.easy, default: [:]]))
+        sorted.append(contentsOf: sortedByID(gradedByTier[.medium, default: [:]]))
+        // 困难档 = 评分为困难的题 + 被指定放进困难档的逻辑专家题
+        var hardTier = gradedByTier[.hard, default: [:]]
+        for (key, entry) in gradedByTier[.expert, default: [:]] {
+            hardTier[key] = withHardOverride(entry)
+        }
+        sorted.append(contentsOf: sortedByID(hardTier))
+        sorted.append(contentsOf: sortedByID(trialEntries))
+        return GenerationResult(jsonText: try makeJSONText(sorted), entries: sorted, attempts: totalAttempts)
+    }
+
+    /// 第一阶段：简单/中等/困难各 30，加 30 道不需要试数的专家题。返回用掉的尝试次数。
+    private func collectLogicPuzzles(into entriesByTier: inout [Difficulty: [String: PuzzleBankEntry]]) -> Int {
         var attempts = 0
         while attempts < maxAttempts {
             let needed = Difficulty.allCases.filter { entriesByTier[$0, default: [:]].count < goal(for: $0) }
@@ -66,34 +93,59 @@ final class BuiltinPuzzleGenerationTests: XCTestCase {
             var generator = PuzzleRandomGenerator(seed: baseSeed &+ UInt64(attempts))
             attempts += 1
             let puzzle = PuzzleGenerator.makePuzzle(targetGivens: target, using: &generator)
-            guard let entry = makeEntry(puzzle) else { continue }
+            guard let entry = makeEntry(puzzle, allowTrialAndError: false) else { continue }
             if entriesByTier[entry.difficulty, default: [:]].count < goal(for: entry.difficulty) {
                 entriesByTier[entry.difficulty, default: [:]][entry.id.value] = entry
             }
-            if attempts % 500 == 0 { report(entriesByTier, attempts: attempts) }
         }
-        report(entriesByTier, attempts: attempts)
-        let sorted = sortedEntries(entriesByTier)
-        return GenerationResult(jsonText: try makeJSONText(sorted), entries: sorted, attempts: attempts)
+        report("logic", entriesByTier.mapValues(\.count), attempts: attempts)
+        return attempts
+    }
+
+    /// 第二阶段：只收需要试数的专家题，并和第一阶段的指纹去重。返回累计尝试次数。
+    private func collectTrialPuzzles(
+        into trialEntries: inout [String: PuzzleBankEntry],
+        existing: [Difficulty: [String: PuzzleBankEntry]],
+        startAttempt: Int
+    ) -> Int {
+        var knownIDs = Set<String>()
+        for tierEntries in existing.values {
+            knownIDs.formUnion(tierEntries.keys)
+        }
+        let targets = targetGivensByTier[.expert] ?? [0]
+        var attempts = startAttempt
+        while attempts - startAttempt < maxAttempts && trialEntries.count < trialExpertGoal {
+            let target = targets[(attempts - startAttempt) % targets.count]
+            var generator = PuzzleRandomGenerator(seed: baseSeed &+ UInt64(attempts))
+            attempts += 1
+            let puzzle = PuzzleGenerator.makePuzzle(targetGivens: target, using: &generator)
+            guard let entry = makeEntry(puzzle, allowTrialAndError: true) else { continue }
+            guard entry.difficulty == .expert, entry.seRating == trialAndErrorRating else { continue }
+            if knownIDs.insert(entry.id.value).inserted {
+                trialEntries[entry.id.value] = entry
+            }
+        }
+        report("trial", [.expert: trialEntries.count], attempts: attempts - startAttempt)
+        return attempts
     }
 
     private func goal(for tier: Difficulty) -> Int {
-        tier == .expert ? expertGoal : perTierGoal
+        tier == .expert ? logicExpertGoal : perTierGoal
     }
 
-    private func report(_ entriesByTier: [Difficulty: [String: PuzzleBankEntry]], attempts: Int) {
-        let counts = Difficulty.allCases.map { "\($0)=\(entriesByTier[$0, default: [:]].count)" }
-        print("GEN attempts=\(attempts) \(counts.joined(separator: " "))")
+    private func report(_ phase: String, _ counts: [Difficulty: Int], attempts: Int) {
+        let text = Difficulty.allCases.map { "\($0)=\(counts[$0, default: 0])" }
+        print("GEN \(phase) attempts=\(attempts) \(text.joined(separator: " "))")
     }
 
     /// 评分并筛选；不符合入库条件的题返回 nil。
-    private func makeEntry(_ puzzle: Grid) -> PuzzleBankEntry? {
+    private func makeEntry(_ puzzle: Grid, allowTrialAndError: Bool) -> PuzzleBankEntry? {
         guard case .success(let grade) = DifficultyGrader.grade(puzzle, rules: .nineByNine) else { return nil }
         let givenCount = puzzle.cells.filter { $0 != Grid.emptyCell }.count
         // 简单档给定数太少会显得不像"简单"
         if grade.difficulty == .easy && givenCount < easyMinimumGivens { return nil }
-        // 内置专家题必须能用逻辑技巧解出，不收需要试数的题
-        if grade.difficulty == .expert && grade.hardestTechnique == .trialAndError { return nil }
+        // 第一阶段不收需要试数的题；第二阶段才收
+        if !allowTrialAndError && grade.hardestTechnique == .trialAndError { return nil }
         return PuzzleBankEntry(
             id: PuzzleCanonicalizer.fingerprint(puzzle, rules: .nineByNine),
             size: 9,
@@ -107,14 +159,18 @@ final class BuiltinPuzzleGenerationTests: XCTestCase {
         )
     }
 
-    /// 按档位、再按指纹排序。
-    private func sortedEntries(_ entriesByTier: [Difficulty: [String: PuzzleBankEntry]]) -> [PuzzleBankEntry] {
-        var sorted: [PuzzleBankEntry] = []
-        for tier in Difficulty.allCases {
-            let tierEntries = entriesByTier[tier, default: [:]].values.sorted { $0.id.value < $1.id.value }
-            sorted.append(contentsOf: tierEntries)
-        }
-        return sorted
+    /// 把评分为专家的逻辑题放进困难档，并记录覆盖。
+    private func withHardOverride(_ entry: PuzzleBankEntry) -> PuzzleBankEntry {
+        PuzzleBankEntry(
+            id: entry.id, size: entry.size, givens: entry.givens, difficulty: entry.difficulty,
+            seRating: entry.seRating, score: entry.score, source: .builtin, addedAt: entry.addedAt,
+            tierOverride: .hard
+        )
+    }
+
+    /// 按指纹排序，保证输出顺序固定。
+    private func sortedByID(_ entries: [String: PuzzleBankEntry]) -> [PuzzleBankEntry] {
+        entries.values.sorted { $0.id.value < $1.id.value }
     }
 
     /// 每个条目占一行，方便看 diff。
