@@ -29,10 +29,10 @@ enum BoardCopy {
     static let autoFilter = "自动筛选"
     static let autoFilterHint = "打开后，同行、同列、同宫已有的数字会变灰，不能点"
     static let invalidSize = "棋盘尺寸无效"
-    static let startLayer = "开始假设"
-    static let startLayerHint = "新开一层假设，之后填的数字会用半透明颜色显示"
-    static let rollbackLayer = "撤回本层"
-    static let rollbackLayerHint = "撤掉当前这层假设填的所有数字"
+    static let startLayer = "新增蒙版"
+    static let startLayerHint = "新增一层蒙版，之后填的数字会用这一层的颜色显示"
+    static let rollbackLayer = "删除该层"
+    static let rollbackLayerHint = "删除当前这层蒙版填的所有数字"
 }
 
 extension BoardCopy {
@@ -42,12 +42,12 @@ extension BoardCopy {
         return noHint + "可试：" + digits
     }
 
-    /// 当前假设层数的说明文字。
+    /// 当前蒙版层数的说明文字。
     static func layerStatus(_ depth: Int) -> String {
         if depth == 0 {
-            return "当前没有假设层"
+            return "当前没有蒙版"
         }
-        return "当前第 \(depth) 层假设"
+        return "当前第 \(depth) 层蒙版"
     }
 }
 

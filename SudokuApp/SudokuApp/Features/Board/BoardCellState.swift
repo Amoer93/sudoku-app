@@ -38,7 +38,7 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
             notes.append("冲突")
         }
         if layerDepth > 0 {
-            notes.append("第 \(layerDepth) 层假设")
+            notes.append("第 \(layerDepth) 层蒙版")
         }
         if isHinted {
             notes.append(isAssumptionHint ? "建议假设格" : "提示格")
