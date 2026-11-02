@@ -7,6 +7,31 @@ extension BoardViewModel {
         }
     }
 
+    /// 打开「显示候选数」时，空格会带上候选数。
+    func cellStates(showingCandidates: Bool) -> [BoardCellState] {
+        var states = cellStates
+        guard showingCandidates else {
+            return states
+        }
+        for index in states.indices {
+            states[index].candidates = Self.candidates(for: index, in: grid, rules: rules)
+        }
+        return states
+    }
+
+    /// 某格的候选数：1 到 N 里没在同行、同列、同宫出现的数字。
+    /// 已有数字的格子和越界下标返回空集合。蒙版层填的数字也算在内。
+    static func candidates(for index: Int, in grid: Grid, rules: Rules) -> Set<Int> {
+        guard rules.size > 0, grid.size == rules.size, grid.cells.indices.contains(index),
+              grid.cells[index] == Grid.emptyCell
+        else {
+            return []
+        }
+        let cell = CellIndex(linearIndex: index, size: rules.size)
+        let used = PeerValues.used(in: grid, rules: rules, at: cell)
+        return Set(1 ... rules.size).subtracting(used)
+    }
+
     var canUndo: Bool {
         !undoStack.isEmpty && !isSolving
     }
