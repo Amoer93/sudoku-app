@@ -85,6 +85,7 @@ private struct BoardContentView: View {
     // 后台评级完成后才变 true
     @State private var needsTrial = false
     @AppStorage("showCandidates") private var showCandidates = false
+    @AppStorage(BoardHighlightStyle.storageKey) private var highlightPeers = BoardHighlightStyle.defaultEnabled
 
     var body: some View {
         ScrollView {
@@ -98,8 +99,7 @@ private struct BoardContentView: View {
                 board
                 controls
                 solveButton
-                Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
-                    .accessibilityHint(BoardCopy.autoFilterHint)
+                filterToggles
                 NumberPadView(
                     size: model.rules.size,
                     isEnabled: model.canEnter,
@@ -143,7 +143,10 @@ private struct BoardContentView: View {
     }
 
     private var board: some View {
-        BoardGridView(rules: model.rules, cells: model.cellStates(showingCandidates: showCandidates)) { index in
+        BoardGridView(
+            rules: model.rules,
+            cells: model.cellStates(showingCandidates: showCandidates, highlightingPeers: highlightPeers)
+        ) { index in
             model.select(index: index)
         }
         .opacity(model.isSolving ? 0.55 : 1)
@@ -228,6 +231,19 @@ private struct BoardContentView: View {
             .controlSize(.small)
             .font(.caption)
             .accessibilityHint(BoardCopy.showCandidatesHint)
+    }
+
+    /// 自动筛选和高亮行列宫两个开关并排放，小字号。
+    private var filterToggles: some View {
+        HStack(spacing: 16) {
+            Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
+                .accessibilityHint(BoardCopy.autoFilterHint)
+            Toggle(BoardCopy.highlightPeers, isOn: $highlightPeers)
+                .accessibilityHint(BoardCopy.highlightPeersHint)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .font(.caption)
     }
 
     private var solveButton: some View {

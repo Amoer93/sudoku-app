@@ -28,6 +28,8 @@ enum BoardCopy {
     static let clearCellHint = "清除选中的格子"
     static let autoFilter = "自动筛选"
     static let autoFilterHint = "打开后，同行、同列、同宫已有的数字会变灰，不能点"
+    static let highlightPeers = "高亮行列宫"
+    static let highlightPeersHint = "打开后，选中格子的同行、同列、同宫会变深一点"
     static let invalidSize = "棋盘尺寸无效"
     static let showCandidates = "显示候选数"
     static let showCandidatesHint = "打开后，空格里会用小数字显示还能填的数"
