@@ -21,7 +21,7 @@ enum BoardCopy {
     static let clearAllHint = "清除你填的数字，题目保留"
     static let hint = "提示"
     static let hintHint = "高亮一个现在就能确定的格子，不会填数字"
-    static let noHint = "当前无唯一解，请假设。"
+    static let noHint = "当前无唯一解，可新增蒙版尝试。"
     static let hintBlockedByConflicts = "盘面有冲突，请先修正。"
     static let noCandidates = "这一格没有能填的数字，可能前面填错了，试试撤销。"
     static let hinted = "提示：高亮的这一格现在就能确定。"
@@ -29,25 +29,25 @@ enum BoardCopy {
     static let autoFilter = "自动筛选"
     static let autoFilterHint = "打开后，同行、同列、同宫已有的数字会变灰，不能点"
     static let invalidSize = "棋盘尺寸无效"
-    static let startLayer = "开始假设"
-    static let startLayerHint = "新开一层假设，之后填的数字会用半透明颜色显示"
-    static let rollbackLayer = "撤回本层"
-    static let rollbackLayerHint = "撤掉当前这层假设填的所有数字"
+    static let startLayer = "新增蒙版"
+    static let startLayerHint = "新增一层蒙版，之后填的数字会用这一层的颜色显示"
+    static let rollbackLayer = "删除该层"
+    static let rollbackLayerHint = "删除当前这层蒙版填的所有数字"
 }
 
 extension BoardCopy {
-    /// 无唯一解时的假设提示，例如「当前无唯一解，请假设。可试：2、5」。
+    /// 无唯一解时的假设提示，例如「当前无唯一解，可新增蒙版尝试。可试：2、5」。
     static func assumption(_ candidates: [Int]) -> String {
         let digits = candidates.map { String($0) }.joined(separator: "、")
         return noHint + "可试：" + digits
     }
 
-    /// 当前假设层数的说明文字。
+    /// 当前蒙版层数的说明文字。
     static func layerStatus(_ depth: Int) -> String {
         if depth == 0 {
-            return "当前没有假设层"
+            return "当前没有蒙版"
         }
-        return "当前第 \(depth) 层假设"
+        return "当前第 \(depth) 层蒙版"
     }
 }
 

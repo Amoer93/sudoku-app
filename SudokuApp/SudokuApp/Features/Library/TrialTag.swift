@@ -4,7 +4,7 @@ import SwiftUI
 /// 「需试错」标签的文案。
 enum TrialTagCopy {
     static let text = "需试错"
-    static let accessibilityLabel = "需试错：这道题需要假设才能解出"
+    static let accessibilityLabel = "需试错：这道题需要试错才能解出"
 
     /// 难度选择器的副标题。
     /// 产品决策：专家档就是需要试错的题；

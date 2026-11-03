@@ -111,8 +111,8 @@ final class AssumptionLayerTests: XCTestCase {
         model.startLayer()
         fill(model, index: 0, value: 1)
         let states = model.cellStates
-        XCTAssertTrue(states[0].accessibilityLabel.contains("第 1 层假设"))
-        XCTAssertFalse(states[1].accessibilityLabel.contains("层假设"))
+        XCTAssertTrue(states[0].accessibilityLabel.contains("第 1 层蒙版"))
+        XCTAssertFalse(states[1].accessibilityLabel.contains("层蒙版"))
     }
 
     func testEntriesAreTaggedWithLayerDepth() {

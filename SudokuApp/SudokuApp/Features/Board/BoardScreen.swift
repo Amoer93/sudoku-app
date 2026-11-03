@@ -92,9 +92,9 @@ private struct BoardContentView: View {
                     TrialTagView()
                 }
                 status
+                layerControls
                 board
                 controls
-                layerControls
                 solveButton
                 Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
                     .accessibilityHint(BoardCopy.autoFilterHint)
@@ -189,31 +189,33 @@ private struct BoardContentView: View {
         }
     }
 
+    /// 蒙版控制放在棋盘上方，一行排完。
     private var layerControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 8) {
             Text(BoardCopy.layerStatus(model.currentLayerDepth))
-                .font(.footnote)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                BoardActionButton(
-                    title: BoardCopy.startLayer,
-                    systemImage: "square.3.layers.3d",
-                    hint: BoardCopy.startLayerHint,
-                    isEnabled: model.canStartLayer,
-                    action: {
-                        model.startLayer()
-                    }
-                )
-                BoardActionButton(
-                    title: BoardCopy.rollbackLayer,
-                    systemImage: "arrow.uturn.backward.circle",
-                    hint: BoardCopy.rollbackLayerHint,
-                    isEnabled: model.canRollbackLayer,
-                    action: {
-                        model.rollbackLayer()
-                    }
-                )
-            }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 0)
+            LayerCapsuleButton(
+                title: BoardCopy.startLayer,
+                systemImage: "square.3.layers.3d",
+                hint: BoardCopy.startLayerHint,
+                isEnabled: model.canStartLayer,
+                action: {
+                    model.startLayer()
+                }
+            )
+            LayerCapsuleButton(
+                title: BoardCopy.rollbackLayer,
+                systemImage: "arrow.uturn.backward.circle",
+                hint: BoardCopy.rollbackLayerHint,
+                isEnabled: model.canRollbackLayer,
+                action: {
+                    model.rollbackLayer()
+                }
+            )
         }
     }
 
@@ -246,6 +248,29 @@ private struct BoardContentView: View {
 }
 
 /// 撤销、重做、清空。图标配短标题，小屏上也能点到。
+private struct LayerCapsuleButton: View {
+    let title: String
+    let systemImage: String
+    let hint: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.caption)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityHint(hint)
+    }
+}
+
 private struct BoardActionButton: View {
     let title: String
     let systemImage: String
