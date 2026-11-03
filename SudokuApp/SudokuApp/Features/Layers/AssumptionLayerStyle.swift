@@ -46,6 +46,17 @@ struct AssumptionLayerStyle: Equatable {
         return palette[(depth - 1) % palette.count]
     }
 
+    /// 蒙版底色的固定透明度。深色模式下也够淡，不会盖住数字。
+    static let tintOpacity = 0.15
+
+    /// 第 `depth` 层的底色：和数字同一个色相，只是更淡。0 层没有底色。
+    static func tintColor(forDepth depth: Int) -> Color? {
+        guard let style = style(forDepth: depth) else {
+            return nil
+        }
+        return style.name.swiftUIColor.opacity(tintOpacity)
+    }
+
     var color: Color {
         name.swiftUIColor.opacity(opacity)
     }

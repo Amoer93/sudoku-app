@@ -29,6 +29,8 @@ enum BoardCopy {
     static let autoFilter = "自动筛选"
     static let autoFilterHint = "打开后，同行、同列、同宫已有的数字会变灰，不能点"
     static let invalidSize = "棋盘尺寸无效"
+    static let showCandidates = "显示候选数"
+    static let showCandidatesHint = "打开后，空格里会用小数字显示还能填的数"
     static let startLayer = "新增蒙版"
     static let startLayerHint = "新增一层蒙版，之后填的数字会用这一层的颜色显示"
     static let rollbackLayer = "删除该层"

@@ -85,11 +85,34 @@ struct BoardGridView: View {
     private func cellLabel(_ cell: BoardCellState, side: CGFloat) -> some View {
         ZStack {
             Rectangle().fill(fill(for: cell))
+            candidateGrid(for: cell, side: side)
             Text(cell.value == 0 ? "" : String(cell.value))
                 .font(digitFont(for: cell, side: side))
                 .foregroundStyle(textColor(for: cell))
                 .minimumScaleFactor(0.4)
                 .lineLimit(1)
+        }
+    }
+
+    /// 候选数画成 3x3 小格；数字 n 放在第 (n-1)/3 行、(n-1)%3 列。
+    @ViewBuilder
+    private func candidateGrid(for cell: BoardCellState, side: CGFloat) -> some View {
+        if cell.value == 0, !cell.candidates.isEmpty {
+            let miniSide = side / 3
+            VStack(spacing: 0) {
+                ForEach(0 ..< 3, id: \.self) { miniRow in
+                    HStack(spacing: 0) {
+                        ForEach(0 ..< 3, id: \.self) { miniColumn in
+                            let digit = miniRow * 3 + miniColumn + 1
+                            Text(cell.candidates.contains(digit) ? String(digit) : "")
+                                .font(.system(size: max(miniSide * 0.7, 1), design: .rounded))
+                                .foregroundStyle(Color.secondary)
+                                .frame(width: miniSide, height: miniSide)
+                        }
+                    }
+                }
+            }
+            .accessibilityHidden(true)
         }
     }
 
@@ -189,6 +212,10 @@ struct BoardGridView: View {
         }
         if cell.isSelected {
             return Color.accentColor.opacity(0.28)
+        }
+        // 选中和提示优先；其余蒙版格用本层的淡底色
+        if let tint = AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth), !cell.isGiven {
+            return tint
         }
         return Color.primary.opacity(0.04)
     }

@@ -84,6 +84,7 @@ private struct BoardContentView: View {
     let bankEntry: PuzzleBankEntry?
     // 后台评级完成后才变 true
     @State private var needsTrial = false
+    @AppStorage("showCandidates") private var showCandidates = false
 
     var body: some View {
         ScrollView {
@@ -93,6 +94,7 @@ private struct BoardContentView: View {
                 }
                 status
                 layerControls
+                candidatesToggle
                 board
                 controls
                 solveButton
@@ -141,7 +143,7 @@ private struct BoardContentView: View {
     }
 
     private var board: some View {
-        BoardGridView(rules: model.rules, cells: model.cellStates) { index in
+        BoardGridView(rules: model.rules, cells: model.cellStates(showingCandidates: showCandidates)) { index in
             model.select(index: index)
         }
         .opacity(model.isSolving ? 0.55 : 1)
@@ -217,6 +219,15 @@ private struct BoardContentView: View {
                 }
             )
         }
+    }
+
+    /// 候选数开关放在蒙版控件下面，占一小行。
+    private var candidatesToggle: some View {
+        Toggle(BoardCopy.showCandidates, isOn: $showCandidates)
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .font(.caption)
+            .accessibilityHint(BoardCopy.showCandidatesHint)
     }
 
     private var solveButton: some View {
