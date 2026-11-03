@@ -8,8 +8,15 @@ extension BoardViewModel {
     }
 
     /// 打开「显示候选数」时，空格会带上候选数。
-    func cellStates(showingCandidates: Bool) -> [BoardCellState] {
+    /// 打开「高亮行列宫」时，选中格的同行、同列、同宫会带上标记。
+    func cellStates(showingCandidates: Bool, highlightingPeers: Bool = false) -> [BoardCellState] {
         var states = cellStates
+        if highlightingPeers {
+            let peers = Self.highlightedIndices(selected: selectedIndex, rules: rules)
+            for index in peers where states.indices.contains(index) {
+                states[index].isPeerHighlighted = true
+            }
+        }
         guard showingCandidates else {
             return states
         }
@@ -17,6 +24,33 @@ extension BoardViewModel {
             states[index].candidates = Self.candidates(for: index, in: grid, rules: rules)
         }
         return states
+    }
+
+    /// 选中格的同行、同列、同宫下标，不含选中格本身。
+    /// 没选格或下标越界返回空集合；5×5 没有宫，只看行和列。
+    static func highlightedIndices(selected: Int?, rules: Rules) -> Set<Int> {
+        let size = rules.size
+        guard let selected, size > 0, (0 ..< size * size).contains(selected) else {
+            return []
+        }
+        let selectedRow = selected / size
+        let selectedColumn = selected % size
+        var peers: Set<Int> = []
+        for offset in 0 ..< size {
+            peers.insert(selectedRow * size + offset)
+            peers.insert(offset * size + selectedColumn)
+        }
+        if let boxRows = rules.boxRows, let boxCols = rules.boxCols {
+            let top = selectedRow / boxRows * boxRows
+            let left = selectedColumn / boxCols * boxCols
+            for row in top ..< top + boxRows {
+                for column in left ..< left + boxCols {
+                    peers.insert(row * size + column)
+                }
+            }
+        }
+        peers.remove(selected)
+        return peers
     }
 
     /// 某格的候选数：1 到 N 里没在同行、同列、同宫出现的数字。

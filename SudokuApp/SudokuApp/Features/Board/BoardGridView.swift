@@ -85,6 +85,10 @@ struct BoardGridView: View {
     private func cellLabel(_ cell: BoardCellState, side: CGFloat) -> some View {
         ZStack {
             Rectangle().fill(fill(for: cell))
+            if cell.isPeerHighlighted {
+                // 叠一层深色，保留原来的底色（蒙版色、提示色）
+                Rectangle().fill(Color.primary.opacity(peerOverlayOpacity(for: cell)))
+            }
             candidateGrid(for: cell, side: side)
             Text(cell.value == 0 ? "" : String(cell.value))
                 .font(digitFont(for: cell, side: side))
@@ -218,6 +222,12 @@ struct BoardGridView: View {
             return tint
         }
         return Color.primary.opacity(0.04)
+    }
+
+    /// 有蒙版底色的格子叠得更淡，免得盖掉本层颜色。
+    private func peerOverlayOpacity(for cell: BoardCellState) -> Double {
+        let hasTint = AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth) != nil && !cell.isGiven
+        return hasTint ? BoardHighlightStyle.tintedPeerOverlay : BoardHighlightStyle.peerOverlay
     }
 
     private func textColor(for cell: BoardCellState) -> Color {

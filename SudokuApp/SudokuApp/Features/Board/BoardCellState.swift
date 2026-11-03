@@ -13,6 +13,8 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
     var layerDepth = 0
     /// 高亮的是建议尝试格（没有确定格时的推荐），不是确定格。
     var isAssumptionHint = false
+    /// 和选中格同行、同列或同宫（不含选中格本身）。
+    var isPeerHighlighted = false
     /// 空格的候选数；只在打开「显示候选数」时才会有值。
     var candidates: Set<Int> = []
 
