@@ -21,7 +21,7 @@ enum BoardCopy {
     static let clearAllHint = "清除你填的数字，题目保留"
     static let hint = "提示"
     static let hintHint = "高亮一个现在就能确定的格子，不会填数字"
-    static let noHint = "当前无唯一解，请假设。"
+    static let noHint = "当前无唯一解，可新增蒙版尝试。"
     static let hintBlockedByConflicts = "盘面有冲突，请先修正。"
     static let noCandidates = "这一格没有能填的数字，可能前面填错了，试试撤销。"
     static let hinted = "提示：高亮的这一格现在就能确定。"
@@ -38,7 +38,7 @@ enum BoardCopy {
 }
 
 extension BoardCopy {
-    /// 无唯一解时的假设提示，例如「当前无唯一解，请假设。可试：2、5」。
+    /// 无唯一解时的假设提示，例如「当前无唯一解，可新增蒙版尝试。可试：2、5」。
     static func assumption(_ candidates: [Int]) -> String {
         let digits = candidates.map { String($0) }.joined(separator: "、")
         return noHint + "可试：" + digits

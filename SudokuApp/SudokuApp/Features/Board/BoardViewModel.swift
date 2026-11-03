@@ -68,7 +68,7 @@ final class BoardViewModel {
     }
 
     /// 请求提示：选中并高亮确定格，只给位置，绝不填数字。
-    /// 找不到确定格（含盘面已有冲突）时显示「当前无唯一解，请假设。」。
+    /// 找不到确定格（含盘面已有冲突）时显示「当前无唯一解，可新增蒙版尝试。」。
     func showHint() {
         guard !isSolving else {
             return
