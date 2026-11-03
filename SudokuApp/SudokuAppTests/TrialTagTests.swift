@@ -90,7 +90,7 @@ final class TrialTagTests: XCTestCase {
 
     func testAccessibilityCopy() {
         XCTAssertEqual(TrialTagCopy.text, "需试错")
-        XCTAssertEqual(TrialTagCopy.accessibilityLabel, "需试错：这道题需要假设才能解出")
+        XCTAssertEqual(TrialTagCopy.accessibilityLabel, "需试错：这道题需要试错才能解出")
     }
 
     func testPickerSubtitleOnlyForExpert() {
