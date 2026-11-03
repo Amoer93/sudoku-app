@@ -18,8 +18,8 @@ final class MaskCopyTests: XCTestCase {
         XCTAssertEqual(BoardCopy.layerStatus(2), "当前第 2 层蒙版")
     }
 
-    func testUnchangedCopy() {
-        XCTAssertEqual(BoardCopy.noHint, "当前无唯一解，请假设。")
+    func testNoHintAndSolvedCopy() {
+        XCTAssertEqual(BoardCopy.noHint, "当前无唯一解，可新增蒙版尝试。")
         XCTAssertEqual(BoardCopy.solved, "已填入解。")
     }
 }

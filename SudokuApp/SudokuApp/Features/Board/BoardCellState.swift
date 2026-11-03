@@ -11,7 +11,7 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
     var isHinted = false
     /// 数字所属的假设层，0 表示确定数字。
     var layerDepth = 0
-    /// 高亮的是建议假设格（没有确定格时的推荐），不是确定格。
+    /// 高亮的是建议尝试格（没有确定格时的推荐），不是确定格。
     var isAssumptionHint = false
     /// 和选中格同行、同列或同宫（不含选中格本身）。
     var isPeerHighlighted = false
@@ -45,7 +45,7 @@ struct BoardCellState: Equatable, Identifiable, Sendable {
             notes.append("第 \(layerDepth) 层蒙版")
         }
         if isHinted {
-            notes.append(isAssumptionHint ? "建议假设格" : "提示格")
+            notes.append(isAssumptionHint ? "建议尝试格" : "提示格")
         }
         if isSelected {
             notes.append("已选中")

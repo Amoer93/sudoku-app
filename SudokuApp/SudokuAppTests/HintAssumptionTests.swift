@@ -11,7 +11,7 @@ final class HintAssumptionTests: XCTestCase {
         XCTAssertEqual(model.selectedIndex, 0)
         XCTAssertEqual(model.hintedIndex, 0)
         XCTAssertEqual(model.notice, .assumption([1, 2, 3, 4]))
-        XCTAssertEqual(model.statusText, "当前无唯一解，请假设。可试：1、2、3、4")
+        XCTAssertEqual(model.statusText, "当前无唯一解，可新增蒙版尝试。可试：1、2、3、4")
         XCTAssertFalse(model.statusIsWarning)
         XCTAssertEqual(model.grid, before, "提示不能填数字")
     }
@@ -48,7 +48,7 @@ final class HintAssumptionTests: XCTestCase {
         XCTAssertTrue(model.cellStates[0].isHinted)
         XCTAssertTrue(model.cellStates[0].isAssumptionHint)
         XCTAssertFalse(model.cellStates[1].isAssumptionHint)
-        XCTAssertTrue(model.cellStates[0].accessibilityLabel.contains("建议假设格"))
+        XCTAssertTrue(model.cellStates[0].accessibilityLabel.contains("建议尝试格"))
         // 选别的格后高亮消失，标记也跟着消失
         model.select(index: 1)
         XCTAssertFalse(model.cellStates[0].isAssumptionHint)
