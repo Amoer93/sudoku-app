@@ -11,7 +11,7 @@ final class HintAssumptionTests: XCTestCase {
         XCTAssertEqual(model.selectedIndex, 0)
         XCTAssertEqual(model.hintedIndex, 0)
         XCTAssertEqual(model.notice, .assumption([1, 2, 3, 4]))
-        XCTAssertEqual(model.statusText, "当前无唯一解，可新增蒙版尝试。可试：1、2、3、4")
+        XCTAssertEqual(model.statusText, "当前无唯一解，可点「试一试」尝试。可试：1、2、3、4")
         XCTAssertFalse(model.statusIsWarning)
         XCTAssertEqual(model.grid, before, "提示不能填数字")
     }

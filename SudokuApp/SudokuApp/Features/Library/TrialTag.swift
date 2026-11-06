@@ -4,7 +4,9 @@ import SwiftUI
 /// 「需试错」标签的文案。
 enum TrialTagCopy {
     static let text = "需试错"
-    static let accessibilityLabel = "需试错：这道题需要试错才能解出"
+    static let explanation = "这道题可能要先猜一个数，再检查对不对。"
+    static let accessibilityLabel = "需试错：" + explanation
+    static let dismissButton = "知道了"
 
     /// 难度选择器的副标题。
     /// 产品决策：专家档就是需要试错的题；
@@ -75,13 +77,23 @@ actor TrialTagCache {
 
 /// 题目行和棋盘页用的小胶囊标签。
 struct TrialTagView: View {
+    @State private var isExplanationShown = false
+
     var body: some View {
-        Text(TrialTagCopy.text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.orange)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(Color.orange.opacity(0.15), in: Capsule())
-            .accessibilityLabel(TrialTagCopy.accessibilityLabel)
+        Button { isExplanationShown = true } label: {
+            Text(TrialTagCopy.text)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color.orange.opacity(0.15), in: Capsule())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(TrialTagCopy.accessibilityLabel)
+        .alert(TrialTagCopy.text, isPresented: $isExplanationShown) {
+            Button(TrialTagCopy.dismissButton, role: .cancel) {}
+        } message: {
+            Text(TrialTagCopy.explanation)
+        }
     }
 }
