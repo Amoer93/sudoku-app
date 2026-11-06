@@ -30,8 +30,10 @@ struct LibraryView: View {
 
     private func list(_ entries: [PuzzleBankEntry]) -> some View {
         List(entries) { entry in
-            Button { open(entry) } label: { row(entry) }
-                .buttonStyle(.plain)
+            // 不用外层 Button：嵌套的徽章 Button 会收不到点击
+            row(entry)
+                .onTapGesture { open(entry) }
+                .accessibilityAddTraits(.isButton)
         }
     }
 
