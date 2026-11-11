@@ -53,11 +53,20 @@ private struct PadButtonStyle: ButtonStyle {
             .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, minHeight: 44)
             // 禁用时只换颜色，不再叠加透明度（双重减淡对比度太低）
-            .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
-            .background(background(isPressed: configuration.isPressed), in: RoundedRectangle(cornerRadius: 8))
+            .foregroundStyle(isEnabled ? AppTheme.pineGreen : AppTheme.secondaryText)
+            .background {
+                background(isPressed: configuration.isPressed)
+            }
     }
 
-    private func background(isPressed: Bool) -> Color {
-        Color.accentColor.opacity(isPressed ? 0.35 : 0.15)
+    /// 可用：松绿浅底，按下时叠一层松绿加深；不可用：安静的浅底。
+    private func background(isPressed: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8)
+        return ZStack {
+            shape.fill(isEnabled ? AppTheme.pineFill : AppTheme.raisedSurface)
+            if isEnabled, isPressed {
+                shape.fill(AppTheme.pineGreen.opacity(0.25))
+            }
+        }
     }
 }

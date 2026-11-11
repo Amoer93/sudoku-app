@@ -4,15 +4,15 @@ enum BoardLineWeight: Equatable {
     case frame
     case box
 
-    /// 线宽（点）。宫线最粗，用来和普通格线区分。
+    /// 线宽（点），数值统一放在 AppTheme。外框比宫线略粗，宫线比格线粗。
     var points: Double {
         switch self {
         case .hairline:
-            return 1
+            return AppTheme.hairlineWidth
         case .frame:
-            return 2
+            return AppTheme.frameLineWidth
         case .box:
-            return 3.5
+            return AppTheme.boxLineWidth
         }
     }
 }

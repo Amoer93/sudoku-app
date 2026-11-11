@@ -116,6 +116,7 @@ private struct BoardContentView: View {
             .frame(maxWidth: 520)
             .frame(maxWidth: .infinity)
         }
+        .background(AppTheme.pageBackground.ignoresSafeArea())
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -254,7 +255,7 @@ private struct BoardContentView: View {
         } label: {
             solveLabel
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(PrimaryButtonStyle())
         .disabled(model.isSolving)
         .accessibilityLabel(model.isSolving ? BoardCopy.solving : BoardCopy.autoSolve)
     }
@@ -317,10 +318,37 @@ private struct BoardActionButton: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(SecondaryButtonStyle())
         .disabled(!isEnabled)
         .accessibilityLabel(title)
         .accessibilityHint(hint)
+    }
+}
+
+/// 主按钮：松绿底、浅色字。只用在棋盘页的「自动解题」。
+private struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(AppTheme.onButtonText)
+            .background(AppTheme.pineGreen, in: RoundedRectangle(cornerRadius: 8))
+            // 按下或不可用时只降透明度一次，不发光
+            .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.5)
+    }
+}
+
+/// 次按钮：松绿字、安静的浅底，按下时换成松绿浅底。
+private struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(isEnabled ? AppTheme.pineGreen : AppTheme.secondaryText)
+            .background(
+                configuration.isPressed ? AppTheme.pineFill : AppTheme.raisedSurface,
+                in: RoundedRectangle(cornerRadius: 8)
+            )
     }
 }
 

@@ -36,11 +36,13 @@ struct BoardGridView: View {
 
     private func board(side: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(uiColor: .secondarySystemBackground))
+            Rectangle()
+                .fill(AppTheme.boardCell)
             cellsLayer(side: side)
             lineLayer(side: side)
         }
+        // 格子和线一起裁成圆角，四个角才干净
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.boardCornerRadius))
         .frame(width: side, height: side, alignment: .topLeading)
     }
 
@@ -85,9 +87,13 @@ struct BoardGridView: View {
     private func cellLabel(_ cell: BoardCellState, side: CGFloat) -> some View {
         ZStack {
             Rectangle().fill(fill(for: cell))
-            if cell.isPeerHighlighted {
-                // 叠一层深色，保留原来的底色（蒙版色、提示色）
+            if cell.isPeerHighlighted, hasLayerTint(cell) {
+                // 蒙版格保留本层底色，只叠一层淡色；普通格直接换成 peerHighlight
                 Rectangle().fill(Color.primary.opacity(peerOverlayOpacity(for: cell)))
+            }
+            if cell.isSelected {
+                // 选中用内侧描边，不用发光或阴影
+                Rectangle().strokeBorder(AppTheme.pineGreen, lineWidth: AppTheme.selectedStrokeWidth)
             }
             candidateGrid(for: cell, side: side)
             Text(cell.value == 0 ? "" : String(cell.value))
@@ -110,7 +116,7 @@ struct BoardGridView: View {
                             let digit = miniRow * 3 + miniColumn + 1
                             Text(cell.candidates.contains(digit) ? String(digit) : "")
                                 .font(.system(size: max(miniSide * 0.7, 1), design: .rounded))
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(AppTheme.secondaryText)
                                 .frame(width: miniSide, height: miniSide)
                         }
                     }
@@ -197,58 +203,70 @@ struct BoardGridView: View {
     private func color(for weight: BoardLineWeight) -> Color {
         switch weight {
         case .hairline:
-            return Color.primary.opacity(0.28)
+            return AppTheme.thinLine
         case .frame, .box:
-            return Color.primary
+            return AppTheme.boxLine
         }
+    }
+
+    /// 非题目格带着蒙版（试填）底色。
+    private func hasLayerTint(_ cell: BoardCellState) -> Bool {
+        return AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth) != nil && !cell.isGiven
     }
 
     private func fill(for cell: BoardCellState) -> Color {
         if cell.isConflict {
-            return Color.red.opacity(cell.isSelected ? 0.5 : 0.32)
+            // 选中与否底色都一样，选中靠描边表示
+            return AppTheme.conflictBackground
         }
         if cell.isHinted, cell.isAssumptionHint {
-            // 假设格用青色，和确定格的黄色一眼分得开
+            // 假设格用青色，和确定格的金色一眼分得开（试填层，之后再改）
             return Color.teal.opacity(0.4)
         }
         if cell.isHinted {
-            return Color.yellow.opacity(0.45)
+            return AppTheme.hintGoldBackground
         }
         if cell.isSelected {
-            return Color.accentColor.opacity(0.28)
+            return AppTheme.pineFill
         }
         // 选中和提示优先；其余蒙版格用本层的淡底色
         if let tint = AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth), !cell.isGiven {
             return tint
         }
-        return Color.primary.opacity(0.04)
+        if cell.isPeerHighlighted {
+            return AppTheme.peerHighlight
+        }
+        return AppTheme.boardCell
     }
 
     /// 有蒙版底色的格子叠得更淡，免得盖掉本层颜色。
     private func peerOverlayOpacity(for cell: BoardCellState) -> Double {
-        let hasTint = AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth) != nil && !cell.isGiven
-        return hasTint ? BoardHighlightStyle.tintedPeerOverlay : BoardHighlightStyle.peerOverlay
+        return hasLayerTint(cell) ? BoardHighlightStyle.tintedPeerOverlay : BoardHighlightStyle.peerOverlay
     }
 
     private func textColor(for cell: BoardCellState) -> Color {
         if cell.isConflict || cell.isGiven {
-            return Color.primary
+            return AppTheme.primaryText
+        }
+        if cell.isHinted, !cell.isAssumptionHint {
+            return AppTheme.hintGoldText
         }
         if let style = AssumptionLayerStyle.style(forDepth: cell.layerDepth) {
             return style.color
         }
-        return Color.accentColor
+        return AppTheme.pineGreen
     }
 
     private func digitFont(for cell: BoardCellState, side: CGFloat) -> Font {
-        let weight: Font.Weight = cell.isGiven ? .bold : .semibold
-        return .system(size: fontSize(for: side), weight: weight, design: .rounded)
+        let baseSize = cell.isGiven ? AppTheme.givenDigitSize : AppTheme.userDigitSize
+        let weight = cell.isGiven ? AppTheme.givenDigitWeight : AppTheme.userDigitWeight
+        return .system(size: fontSize(base: baseSize, cellSide: side), weight: weight, design: .rounded)
     }
 
-    /// 动态字体放大时数字跟着变大，但限制在格子里，避免把宫线撑乱。
-    private func fontSize(for cellSide: CGFloat) -> CGFloat {
-        let scaled = cellSide * 0.46 * min(typeScale, 1.8)
-        return max(scaled, 1)
+    /// 动态字体放大时数字跟着变大，但不超过格子的 70%，小格子（9×9）也放得下。
+    private func fontSize(base: CGFloat, cellSide: CGFloat) -> CGFloat {
+        let scaled = base * min(typeScale, 1.8)
+        return max(min(scaled, cellSide * 0.7), 1)
     }
 
     private func traits(for cell: BoardCellState) -> AccessibilityTraits {

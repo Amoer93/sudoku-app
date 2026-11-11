@@ -96,6 +96,12 @@ final class BoardModelTests: XCTestCase {
         XCTAssertEqual(BoardLines.weight(line: 3, size: 6, span: 2), .hairline)
     }
 
+    func testLineWidthsFollowTheme() {
+        XCTAssertEqual(BoardLineWeight.hairline.points, 0.5)
+        XCTAssertEqual(BoardLineWeight.box.points, 2)
+        XCTAssertEqual(BoardLineWeight.frame.points, 2.5)
+    }
+
     func testInvalidLineDoesNotCrash() {
         XCTAssertEqual(BoardLines.weight(line: 0, size: 0, span: nil), .hairline)
         XCTAssertEqual(BoardLines.weight(line: -1, size: 4, span: 2), .hairline)
