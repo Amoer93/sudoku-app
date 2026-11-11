@@ -32,8 +32,6 @@ struct LibraryView: View {
         List(entries) { entry in
             // 不用外层 Button：嵌套的徽章 Button 会收不到点击
             row(entry)
-                .onTapGesture { open(entry) }
-                .accessibilityAddTraits(.isButton)
         }
     }
 
@@ -59,6 +57,7 @@ struct LibraryView: View {
     private func row(_ entry: PuzzleBankEntry) -> some View {
         HStack {
             Text(LibraryCopy.title(entry.difficulty)).font(.headline)
+                .accessibilityHidden(true) // 文字已并入整行标签
             if model.needsTrial(entry) {
                 TrialTagView()
             }
@@ -66,18 +65,25 @@ struct LibraryView: View {
             Text(LibraryCopy.title(entry.source))
                 .font(.caption).padding(.horizontal, 8).padding(.vertical, 2)
                 .background(.quaternary, in: Capsule())
+                .accessibilityHidden(true)
             // 被点的那一行用转圈代替箭头
             if model.openingEntryID == entry.id {
-                ProgressView().controlSize(.small)
+                ProgressView().controlSize(.small).accessibilityHidden(true)
             } else {
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
         }
         .task(id: entry.id) { await model.loadTrialFlag(for: entry) }
         .contentShape(Rectangle()) // 整行都能点
-        .accessibilityElement(children: .combine)
+        .onTapGesture { open(entry) } // 徽章是 Button，会先吃掉自己的点击
+        // contain：徽章保留为独立元素，VoiceOver 可单独聚焦和激活
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(LibraryCopy.title(entry.difficulty))，\(LibraryCopy.title(entry.source))")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(.default) { open(entry) }
     }
 
     private var filterMenu: some View {

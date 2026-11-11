@@ -1,7 +1,7 @@
 @testable import SudokuApp
 import XCTest
 
-/// 「假设层」改名为「蒙版」后的文案断言。
+/// 「假设层」改名为「试填」后的文案断言。
 final class MaskCopyTests: XCTestCase {
     func testMaskButtonTitles() {
         XCTAssertEqual(BoardCopy.startLayer, "试一试")

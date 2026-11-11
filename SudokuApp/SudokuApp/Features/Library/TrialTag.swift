@@ -87,6 +87,7 @@ struct TrialTagView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(Color.orange.opacity(0.15), in: Capsule())
+                .contentShape(Capsule()) // 整个胶囊都能点
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(TrialTagCopy.accessibilityLabel)
