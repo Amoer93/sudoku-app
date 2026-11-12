@@ -7,17 +7,18 @@ final class StepTechniquesTests: XCTestCase {
 
     // MARK: - 多个技巧
 
-    /// 只空 (0,0)：宫排除、行排除、列排除都能填 4，唯一余数排第四被截掉。
-    func testSingleBlankGivesBoxRowAndColumnHiddenSingle() throws {
+    /// 只空 (0,0)：宫排除、行排除、唯一余数三种不同写法；列排除与行排除同类，被去重掉。
+    func testSingleBlankGivesBoxRowAndNakedSingleAfterKindDedupe() throws {
         let grid = try makeGrid("083921657" + solved.dropFirst(9))
         let steps = stepTechniques(in: grid, rules: .nineByNine)
 
-        XCTAssertEqual(steps.count, 3)
-        XCTAssertEqual(steps.map(\.technique), [.hiddenSingle, .hiddenSingle, .hiddenSingle])
-        XCTAssertEqual(steps.map(\.units), [[.box(0)], [.row(0)], [.column(0)]])
+        XCTAssertEqual(steps.map(\.technique), [.hiddenSingle, .hiddenSingle, .nakedSingle])
+        XCTAssertEqual(steps.map(\.units), [[.box(0)], [.row(0)], [.row(0), .column(0), .box(0)]])
         let expected = [StepPlacement(cell: CellIndex(row: 0, column: 0), digit: 4)]
         for step in steps {
             XCTAssertEqual(step.placements, expected)
+            XCTAssertTrue(step.patternCells.isEmpty)
+            XCTAssertTrue(step.patternDigits.isEmpty)
         }
         try assertEffectsAreReal(steps, grid: grid, unique: true)
     }
@@ -36,6 +37,8 @@ final class StepTechniquesTests: XCTestCase {
         XCTAssertEqual(step.technique, .boxLineReduction)
         XCTAssertEqual(step.units, [.column(6), .box(8)])
         XCTAssertTrue(step.placements.isEmpty)
+        XCTAssertEqual(step.patternCells, [CellIndex(row: 6, column: 6), CellIndex(row: 8, column: 6)])
+        XCTAssertEqual(step.patternDigits, [])
         XCTAssertEqual(step.eliminations, [StepElimination(cell: CellIndex(row: 6, column: 7), digit: 3)])
         try assertEffectsAreReal(steps, grid: grid, unique: true)
     }
@@ -69,13 +72,13 @@ final class StepTechniquesTests: XCTestCase {
 
     // MARK: - 辅助
 
-    private func makeGrid(_ text: String) throws -> Grid {
+    func makeGrid(_ text: String) throws -> Grid {
         let cells = try text.filter { !$0.isWhitespace }.map { try XCTUnwrap($0.wholeNumberValue) }
         return try Grid(size: 9, cells: cells)
     }
 
     /// 填数落在空格、删的数字当前确实是候选数；`unique` 为真时还要和唯一解对照。
-    private func assertEffectsAreReal(_ steps: [StepTechnique], grid: Grid, unique: Bool = false) throws {
+    func assertEffectsAreReal(_ steps: [StepTechnique], grid: Grid, unique: Bool = false) throws {
         var solution: Grid?
         if unique {
             XCTAssertEqual(solutionCount(grid, rules: .nineByNine, limit: 2), 1)

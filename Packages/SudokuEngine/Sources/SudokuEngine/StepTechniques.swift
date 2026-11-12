@@ -30,20 +30,31 @@ public struct StepTechnique: Codable, Equatable, Hashable, Sendable {
     public let placements: [StepPlacement]
     /// 该技巧直接导致的删候选（可空）。
     public let eliminations: [StepElimination]
+    /// 数对的两格（显性/隐性数对），或区块技巧（pointing/claiming）的来源格；按行再按列排序。
+    /// 其他技巧为空。
+    public let patternCells: [CellIndex]
+    /// 数对的两个数字（从小到大）。区块技巧为空（数字已在 eliminations 里），其他技巧也为空。
+    public let patternDigits: [Int]
 
     /// 公开构造方法，方便 App 端自己组装或复制。
     public init(
         technique: Technique, units: [ConstraintUnit],
-        placements: [StepPlacement], eliminations: [StepElimination]
+        placements: [StepPlacement], eliminations: [StepElimination],
+        patternCells: [CellIndex] = [], patternDigits: [Int] = []
     ) {
         self.technique = technique
         self.units = units
         self.placements = placements
         self.eliminations = eliminations
+        self.patternCells = patternCells
+        self.patternDigits = patternDigits
     }
 }
 
-/// 返回当前盘面上可以解释下一步的技巧，最多 3 项，按简单程度排序。
+/// 返回当前盘面上可以解释下一步的技巧：每种最多一项，最多 3 项，最简单的在前。
+///
+/// 「种类」以内部名次区分：宫排除与行/列排除虽然都是 .hiddenSingle，但算两种；
+/// 行排除与列排除算同一种，只保留排在前面的那一项。
 ///
 /// 只报告「可以用来走出这一步」的技巧，不推断玩家实际用了哪招。
 /// 候选数只由当前盘面的行、列、宫排除得出，不使用玩家笔记。
@@ -69,7 +80,17 @@ public func stepTechniques(in grid: Grid, rules: Rules) -> [StepTechnique] {
 
     // 先按简单程度，再按区域、格子、数字排，保证结果固定。
     found.sort { $0.sortKey < $1.sortKey }
-    return found.prefix(3).map(\.step)
+    return firstPerKind(found).prefix(3).map(\.step)
+}
+
+/// 已排好序的结果里，每个名次（种类）只留第一项。
+private func firstPerKind(_ sorted: [FoundStep]) -> [FoundStep] {
+    var seenRanks: Set<Int> = []
+    var result: [FoundStep] = []
+    for item in sorted where seenRanks.insert(item.rank).inserted {
+        result.append(item)
+    }
+    return result
 }
 
 // MARK: - 内部实现
@@ -176,7 +197,7 @@ private struct StepDetector {
         return [makeStep(
             rank: rank, unitIndex: source, cell: sourceCells[0], digit: digit,
             technique: technique, units: [constraintUnit(source), constraintUnit(target)],
-            eliminations: removed
+            eliminations: removed, patternCells: sourceCells
         )]
     }
 
@@ -201,7 +222,8 @@ private struct StepDetector {
                 result.append(makeStep(
                     rank: 5, unitIndex: unitIndex, cell: pair[0],
                     digit: pairMask.trailingZeroBitCount + 1,
-                    technique: .nakedPair, units: [constraintUnit(unitIndex)], eliminations: removed
+                    technique: .nakedPair, units: [constraintUnit(unitIndex)], eliminations: removed,
+                    patternCells: pair, patternDigits: digits(of: pairMask)
                 ))
             }
         }
@@ -228,7 +250,8 @@ private struct StepDetector {
                 guard !removed.isEmpty else { continue }
                 result.append(makeStep(
                     rank: 6, unitIndex: unitIndex, cell: cells[0], digit: pair[0],
-                    technique: .hiddenPair, units: [constraintUnit(unitIndex)], eliminations: removed
+                    technique: .hiddenPair, units: [constraintUnit(unitIndex)], eliminations: removed,
+                    patternCells: cells, patternDigits: pair
                 ))
             }
         }
@@ -256,6 +279,15 @@ private struct StepDetector {
         return result
     }
 
+    /// 掩码里的数字，从小到大。
+    private func digits(of mask: UInt16) -> [Int] {
+        var result: [Int] = []
+        for digit in 1 ... size where mask & (UInt16(1) << UInt16(digit - 1)) != 0 {
+            result.append(digit)
+        }
+        return result
+    }
+
     /// 把 `layout.units` 下标转成 `ConstraintUnit`。
     private func constraintUnit(_ unitIndex: Int) -> ConstraintUnit {
         let index = unitIndex % size
@@ -277,14 +309,17 @@ private struct StepDetector {
     private func makeStep(
         rank: Int, unitIndex: Int, cell: Int, digit: Int,
         technique: Technique, units: [ConstraintUnit],
-        placements: [StepPlacement] = [], eliminations: [StepElimination] = []
+        placements: [StepPlacement] = [], eliminations: [StepElimination] = [],
+        patternCells: [Int] = [], patternDigits: [Int] = []
     ) -> FoundStep {
         let kind = unitIndex / size
         let kindOrder = (kind == 2) ? 0 : kind + 1
         return FoundStep(
             rank: rank, unitOrder: kindOrder * 100 + unitIndex % size, cell: cell, digit: digit,
             step: StepTechnique(
-                technique: technique, units: units, placements: placements, eliminations: eliminations
+                technique: technique, units: units, placements: placements, eliminations: eliminations,
+                patternCells: patternCells.sorted().map { CellIndex(linearIndex: $0, size: size) },
+                patternDigits: patternDigits.sorted()
             )
         )
     }
