@@ -38,7 +38,7 @@ final class StepTechniquesTests: XCTestCase {
         XCTAssertEqual(step.units, [.column(6), .box(8)])
         XCTAssertTrue(step.placements.isEmpty)
         XCTAssertEqual(step.patternCells, [CellIndex(row: 6, column: 6), CellIndex(row: 8, column: 6)])
-        XCTAssertEqual(step.patternDigits, [])
+        XCTAssertEqual(step.patternDigits, [3])
         XCTAssertEqual(step.eliminations, [StepElimination(cell: CellIndex(row: 6, column: 7), digit: 3)])
         try assertEffectsAreReal(steps, grid: grid, unique: true)
     }

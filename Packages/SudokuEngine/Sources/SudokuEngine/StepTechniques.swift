@@ -33,7 +33,8 @@ public struct StepTechnique: Codable, Equatable, Hashable, Sendable {
     /// 数对的两格（显性/隐性数对），或区块技巧（pointing/claiming）的来源格；按行再按列排序。
     /// 其他技巧为空。
     public let patternCells: [CellIndex]
-    /// 数对的两个数字（从小到大）。区块技巧为空（数字已在 eliminations 里），其他技巧也为空。
+    /// 数对的两个数字（从小到大）；区块技巧（pointing/claiming）为被锁定的那一个数字。
+    /// 其他技巧为空。
     public let patternDigits: [Int]
 
     /// 公开构造方法，方便 App 端自己组装或复制。
@@ -55,6 +56,7 @@ public struct StepTechnique: Codable, Equatable, Hashable, Sendable {
 ///
 /// 「种类」以内部名次区分：宫排除与行/列排除虽然都是 .hiddenSingle，但算两种；
 /// 行排除与列排除算同一种，只保留排在前面的那一项。
+/// 选每一种时，优先选填数格没被更简单的种类用过的那一项；都用过时才退回第一项。
 ///
 /// 只报告「可以用来走出这一步」的技巧，不推断玩家实际用了哪招。
 /// 候选数只由当前盘面的行、列、宫排除得出，不使用玩家笔记。
@@ -83,12 +85,25 @@ public func stepTechniques(in grid: Grid, rules: Rules) -> [StepTechnique] {
     return firstPerKind(found).prefix(3).map(\.step)
 }
 
-/// 已排好序的结果里，每个名次（种类）只留第一项。
+/// 已排好序的结果里，每个名次（种类）只留一项，从简单的种类开始选。
+/// 优先选「填数格还没被前面种类用过」的第一项；如果该种类的每一项都重复用了，
+/// 就退回该种类的第一项（例如只空一格的盘面）。没有填数格的技巧永远取第一项。
 private func firstPerKind(_ sorted: [FoundStep]) -> [FoundStep] {
-    var seenRanks: Set<Int> = []
+    var rankOrder: [Int] = []
+    for item in sorted where !rankOrder.contains(item.rank) {
+        rankOrder.append(item.rank)
+    }
+
+    var usedCells: Set<CellIndex> = []
     var result: [FoundStep] = []
-    for item in sorted where seenRanks.insert(item.rank).inserted {
-        result.append(item)
+    for rank in rankOrder {
+        let candidates = sorted.filter { $0.rank == rank }
+        let unused = candidates.first { item in
+            Set(item.step.placements.map(\.cell)).isDisjoint(with: usedCells)
+        }
+        guard let chosen = unused ?? candidates.first else { continue }
+        result.append(chosen)
+        usedCells.formUnion(chosen.step.placements.map(\.cell))
     }
     return result
 }
@@ -197,7 +212,7 @@ private struct StepDetector {
         return [makeStep(
             rank: rank, unitIndex: source, cell: sourceCells[0], digit: digit,
             technique: technique, units: [constraintUnit(source), constraintUnit(target)],
-            eliminations: removed, patternCells: sourceCells
+            eliminations: removed, patternCells: sourceCells, patternDigits: [digit]
         )]
     }
 

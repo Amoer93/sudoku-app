@@ -27,15 +27,16 @@ extension StepTechniquesTests {
         )
 
         XCTAssertEqual(steps.map(\.technique), [.hiddenSingle, .hiddenSingle, .pointing])
-        XCTAssertEqual(steps.map(\.units), [[.box(0)], [.row(1)], [.box(1), .row(1)]])
+        XCTAssertEqual(steps.map(\.units), [[.box(0)], [.row(5)], [.box(1), .row(1)]])
         XCTAssertEqual(steps[0].placements, [StepPlacement(cell: cell(1, 1), digit: 2)])
-        XCTAssertEqual(steps[1].placements, [StepPlacement(cell: cell(1, 1), digit: 2)])
+        // 行排除跳过已用的 (1,1)，取排序里第一个没用过的格子。
+        XCTAssertEqual(steps[1].placements, [StepPlacement(cell: cell(5, 2), digit: 5)])
         for step in steps.prefix(2) {
             XCTAssertTrue(step.patternCells.isEmpty)
             XCTAssertTrue(step.patternDigits.isEmpty)
         }
         XCTAssertEqual(steps[2].patternCells, [cell(1, 3), cell(1, 5)])
-        XCTAssertEqual(steps[2].patternDigits, [])
+        XCTAssertEqual(steps[2].patternDigits, [8])
         XCTAssertEqual(steps[2].eliminations, removal(1, 1, 8) + removal(1, 2, 8))
         try assertEffectsAreReal(steps, grid: grid, unique: true)
     }
@@ -50,9 +51,11 @@ extension StepTechniquesTests {
         XCTAssertEqual(steps.map(\.technique), [.pointing, .boxLineReduction, .nakedPair])
         XCTAssertEqual(steps[0].units, [.box(1), .column(5)])
         XCTAssertEqual(steps[0].patternCells, [cell(0, 5), cell(2, 5)])
+        XCTAssertEqual(steps[0].patternDigits, [5])
         XCTAssertEqual(steps[0].eliminations, removal(4, 5, 5))
         XCTAssertEqual(steps[1].units, [.column(3), .box(4)])
         XCTAssertEqual(steps[1].patternCells, [cell(3, 3), cell(4, 3)])
+        XCTAssertEqual(steps[1].patternDigits, [5])
         XCTAssertEqual(steps[1].eliminations, removal(4, 5, 5))
 
         let pair = steps[2]
@@ -73,9 +76,11 @@ extension StepTechniquesTests {
         XCTAssertEqual(steps.map(\.technique), [.pointing, .boxLineReduction, .hiddenPair])
         XCTAssertEqual(steps[0].units, [.box(2), .column(8)])
         XCTAssertEqual(steps[0].patternCells, [cell(1, 8), cell(2, 8)])
+        XCTAssertEqual(steps[0].patternDigits, [6])
         XCTAssertEqual(steps[0].eliminations, removal(7, 8, 6))
         XCTAssertEqual(steps[1].units, [.row(5), .box(3)])
         XCTAssertEqual(steps[1].patternCells, [cell(5, 0), cell(5, 1)])
+        XCTAssertEqual(steps[1].patternDigits, [6])
         XCTAssertEqual(steps[1].eliminations, removal(4, 1, 6))
 
         let pair = steps[2]
