@@ -95,7 +95,7 @@ final class TrialTagTests: XCTestCase {
     }
 
     func testPickerSubtitleOnlyForExpert() {
-        XCTAssertEqual(TrialTagCopy.pickerSubtitle(for: .expert), TrialTagCopy.text)
+        XCTAssertEqual(TrialTagCopy.pickerSubtitle(for: .expert), "有的题要试一试")
         for difficulty in Difficulty.allCases where difficulty != .expert {
             XCTAssertNil(TrialTagCopy.pickerSubtitle(for: difficulty))
         }
