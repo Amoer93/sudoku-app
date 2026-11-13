@@ -50,6 +50,11 @@ final class LibraryViewModel {
         !bank.entries(difficulty: difficulty, source: nil, sort: .sourceThenDifficulty).isEmpty
     }
 
+    /// 某难度的内置题（首页格子用）。
+    func builtinEntries(difficulty: Difficulty) -> [PuzzleBankEntry] {
+        bank.builtinEntries(difficulty: difficulty)
+    }
+
     /// 清掉所有筛选条件。
     func clearFilters() {
         difficultyFilter = nil
@@ -124,6 +129,14 @@ struct PlayRoute: Identifiable, Hashable {
     let puzzle: SamplePuzzle?
     /// 题来自题库时带上条目，棋盘页据此显示「需试错」
     var entry: PuzzleBankEntry?
+
+    /// 创建路由；题库条目缺少题面时返回 nil（否则棋盘会显示默认示例题）
+    static func making(preset: BoardPreset, entry: PuzzleBankEntry?, puzzle: SamplePuzzle?) -> PlayRoute? {
+        if entry != nil && puzzle == nil {
+            return nil
+        }
+        return PlayRoute(preset: preset, puzzle: puzzle, entry: entry)
+    }
 
     static func == (lhs: PlayRoute, rhs: PlayRoute) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
