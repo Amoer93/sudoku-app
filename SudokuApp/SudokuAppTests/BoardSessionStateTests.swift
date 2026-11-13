@@ -66,7 +66,6 @@ final class BoardSessionStateTests: XCTestCase {
             ("undoCount too large", { $0.layers[0].undoCount = $0.undoStack.count + 1 }),
             ("undoCount decreasing", { $0.layers[1].undoCount = 0 }),
             ("size mismatch", { $0.size = 5 }),
-            ("schema 2", { $0.schemaVersion = 2 }),
             ("schema 0", { $0.schemaVersion = 0 })
         ]
         for (name, mutate) in cases {
@@ -76,15 +75,16 @@ final class BoardSessionStateTests: XCTestCase {
         }
     }
 
-    func testUndecodableJSONIsNoSave() {
+    func testDifferentPuzzleIDIsRejected() throws {
+        XCTAssertNil(restore(try makeSession(), as: PuzzleFingerprint(value: "other-puzzle")))
+    }
+
+    func testUndecodableJSONIsNoSave() throws {
         XCTAssertNil(BoardSessionState.decode(from: Data("not json".utf8)))
         XCTAssertNil(BoardSessionState.decode(from: Data("{}".utf8)))
         // 缺 schemaVersion 也算没有存档
         let noVersion = #"{"puzzleID":"fixture-4","size":4,"grid":"0000000000000000","depths":"0000000000000000"}"#
         XCTAssertNil(BoardSessionState.decode(from: Data(noVersion.utf8)))
-    }
-
-    func testNewerSchemaVersionIsNoSave() throws {
         var object = try jsonObject(of: makeSession())
         object["schemaVersion"] = 2
         let loaded = BoardSessionState.decode(from: try JSONSerialization.data(withJSONObject: object))
@@ -125,8 +125,9 @@ final class BoardSessionStateTests: XCTestCase {
         try XCTUnwrap(makeBusyModel().makeSessionState(puzzleID: puzzleID, savedAt: savedAt))
     }
 
-    private func restore(_ session: BoardSessionState) -> BoardViewModel? {
-        BoardViewModel.restored(title: "4×4", puzzle: puzzle, session: session, engine: FixtureBoardEngine())
+    private func restore(_ session: BoardSessionState, as id: PuzzleFingerprint? = nil) -> BoardViewModel? {
+        BoardViewModel.restored(title: "4×4", puzzle: puzzle, session: session, puzzleID: id ?? puzzleID,
+                                engine: FixtureBoardEngine())
     }
 
     private func snapshot(of model: BoardViewModel) -> BoardSessionState? {

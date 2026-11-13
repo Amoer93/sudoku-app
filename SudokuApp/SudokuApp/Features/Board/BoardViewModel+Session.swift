@@ -36,9 +36,10 @@ extension BoardViewModel {
         title: String,
         puzzle: SamplePuzzle,
         session: BoardSessionState,
+        puzzleID: PuzzleFingerprint,
         engine: any SudokuBoardEngine = EngineBoardAdapter()
     ) -> BoardViewModel? {
-        guard let valid = session.validated(against: puzzle),
+        guard let valid = session.validated(against: puzzle, puzzleID: puzzleID),
               let current = decode(valid, valid.grid, valid.depths)
         else {
             return nil

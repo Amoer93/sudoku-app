@@ -115,8 +115,9 @@ extension BoardSessionState {
 extension BoardSessionState {
     /// 对照要恢复的题检查存档；任何一项不对都返回 nil，绝不崩溃。
     /// 题目给定的数字必须原样保留，这样存档放错题或题被改过都会被挡住。
-    func validated(against puzzle: SamplePuzzle) -> BoardSessionState? {
-        guard schemaVersion == Self.currentSchemaVersion, size == puzzle.rules.size,
+    func validated(against puzzle: SamplePuzzle, puzzleID: PuzzleFingerprint) -> BoardSessionState? {
+        // 调用方给的题目指纹必须和存档里记的一致，防止存档套到别的题上
+        guard schemaVersion == Self.currentSchemaVersion, self.puzzleID == puzzleID, size == puzzle.rules.size,
               puzzle.givens.cells.count == size * size
         else {
             return nil
