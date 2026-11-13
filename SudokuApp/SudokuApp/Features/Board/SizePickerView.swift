@@ -26,7 +26,7 @@ struct SizePickerView: View {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.orange)
-                        .accessibilityLabel(TrialTagCopy.accessibilityLabel)
+                        .accessibilityLabel(subtitle)
                 }
                 if !library.hasEntries(difficulty: difficulty) {
                     Text(LibraryCopy.difficultyFallback)

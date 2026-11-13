@@ -9,11 +9,11 @@ enum TrialTagCopy {
     static let dismissButton = "知道了"
 
     /// 难度选择器的副标题。
-    /// 产品决策：专家档就是需要试错的题；
-    /// 单题标签仍然只看 hardestTechnique，不受这里影响。
+    /// 专家档里有一部分题需要试错；
+    /// 单题「需试错」标签仍然只看 hardestTechnique，用来标明是哪几道。
     static func pickerSubtitle(for difficulty: Difficulty) -> String? {
         if difficulty == .expert {
-            return text
+            return "有的题要试一试"
         }
         return nil
     }
