@@ -12,7 +12,7 @@ struct AssumptionLayer {
 }
 
 /// 假设层的只读部分。拆到单独文件是为了让 BoardViewModel.swift 满足 SwiftLint 的长度限制。
-/// 所有会写 grid、notice、层和撤销栈的方法（开层、回滚等）都在 BoardViewModel.swift 里。
+/// 会写 grid、notice、层和撤销栈的方法在 BoardViewModel.swift 和 BoardViewModel+Steps.swift 里。
 extension BoardViewModel {
     /// 当前假设层数，0 表示没有开启假设。
     var currentLayerDepth: Int {

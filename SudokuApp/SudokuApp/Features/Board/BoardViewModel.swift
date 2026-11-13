@@ -1,25 +1,5 @@
 import Observation
 
-/// 唯一性检查最多数到 2：0 无解，1 唯一，2 表示至少还有另一个解。
-private let solutionCountLimit = 2
-
-/// 一次离线求解的结果。计数针对求解前的盘面，不是填满之后的那一盘。
-private struct SolveOutcome: Sendable {
-    let grid: Grid?
-    let count: Int
-}
-
-/// 对求解前的当前盘面（给定数字 + 玩家填入）计数。不要把填满的结果再送进 `solutionCount`，否则多解题会变成 1。
-private func makeSolveOutcome(
-    engine: any SudokuBoardEngine,
-    grid: Grid,
-    rules: Rules
-) -> SolveOutcome {
-    let solved = engine.solve(grid, rules: rules)
-    let count = engine.solutionCount(grid, rules: rules, limit: solutionCountLimit)
-    return SolveOutcome(grid: solved, count: count)
-}
-
 /// 棋盘状态。撤销栈和选中格在这里，规则判断交给引擎。
 @MainActor
 @Observable
@@ -27,38 +7,39 @@ final class BoardViewModel {
     let title: String
     let rules: Rules
 
-    private let engine: any SudokuBoardEngine
+    // 放宽到 internal 只读：拆出去的扩展文件要读它；只有 init 会写。
+    let engine: any SudokuBoardEngine
     // 放宽到 internal 只读：拆出去的扩展文件（状态文案、格子状态）要读它；只有 init 会写。
     let givens: Set<Int>
-    // 下面三个只放宽“读”：Layers 等扩展文件要读，所有写入都在本文件里。
-    private(set) var undoStack: [BoardSnapshot] = []
-    private(set) var redoStack: [BoardSnapshot] = []
-    private(set) var layers: [AssumptionLayer] = []
-    /// 每格是在第几层填的，0 表示确定数字（含题目给定）。只放宽“读”，写入都在本文件里。
-    private(set) var cellDepths: [Int]
+    // 下面这些存储属性放宽到 internal 可写：BoardViewModel+Steps.swift 里的步骤要写它们。
+    var undoStack: [BoardSnapshot] = []
+    var redoStack: [BoardSnapshot] = []
+    var layers: [AssumptionLayer] = []
+    /// 每格是在第几层填的，0 表示确定数字（含题目给定）。写入在本文件和 BoardViewModel+Steps.swift 里。
+    var cellDepths: [Int]
     private var countGeneration = 0
     private var countTask: Task<Void, Never>?
 
     /// 盘面一变，提示高亮就作废。
-    private(set) var grid: Grid {
+    var grid: Grid {
         didSet {
             hintedIndex = nil
         }
     }
 
     /// 提示高亮的格子。用户选别的格、填数、撤销、清空、自动解题后都会清掉。
-    private(set) var hintedIndex: Int?
-    private(set) var selectedIndex: Int?
+    var hintedIndex: Int?
+    var selectedIndex: Int?
     /// 自动筛选模式。默认关闭，关闭时键盘行为和以前完全一样。
     var isAutoFilterOn = false
     private(set) var conflicts: Set<Int>
-    private(set) var solutionCount: Int?
-    private(set) var notice: BoardNotice = .idle
-    private(set) var isSolving = false
+    var solutionCount: Int?
+    var notice: BoardNotice = .idle
+    var isSolving = false
     /// 用过「全解」：盘面是程序填的，不算玩家自己做完。清空后才重新算。
-    private(set) var usedAutoSolve = false
+    var usedAutoSolve = false
     /// 这一局已记过「做完」：只有清空或新开一局才清掉，撤销重做不动它。
-    private(set) var hasRecordedCompletion = false
+    var hasRecordedCompletion = false
     /// 玩家做完时通知外面记录；每局最多一次。
     @ObservationIgnored var onPlayerCompleted: (() -> Void)?
 
@@ -208,143 +189,7 @@ final class BoardViewModel {
     }
 }
 
-/// 格子、撤销和求解的具体步骤。拆出来是为了让主类型保持短小。
-private extension BoardViewModel {
-    /// 没有确定格时改为推荐一个假设格；只选中并高亮，不改盘面。
-    func showAssumption() {
-        guard let assumption = engine.assumptionCell(in: grid, rules: rules) else {
-            hintedIndex = nil
-            notice = .noHint
-            return
-        }
-        // 先检查行列范围，因为 linearIndex 越界会直接崩溃
-        let cell = assumption.cell
-        let size = rules.size
-        guard (0 ..< size).contains(cell.row), (0 ..< size).contains(cell.column) else {
-            hintedIndex = nil
-            notice = .noHint
-            return
-        }
-        // 行列都在范围内，线性下标必然落在盘面内
-        let index = cell.linearIndex(size: size)
-        selectedIndex = index
-        hintedIndex = index
-        notice = .assumption(assumption.candidates)
-    }
-
-    /// 撤销退到某层开层点之前时，这一层已经不存在，要把它弹掉（嵌套的层也一样）。
-    /// 重做越过开层点时不会重建这一层，所以重做回来的数字沿用快照里的层深。
-    func dropLayersBeyondUndo() {
-        while let top = layers.last, top.undoCount > undoStack.count {
-            layers.removeLast()
-        }
-    }
-
-    /// 清空和自动解题会改动整盘，假设层不再有意义：全部丢掉，数字都算确定数字。
-    func clearAllLayers() {
-        layers.removeAll()
-        cellDepths = Array(repeating: 0, count: cellDepths.count)
-    }
-
-    /// 撤销/重做恢复的层深可能比当前层数大（那一层已被清空或弹掉），压回当前层数避免出现幽灵层。
-    func clampDepthsToLayers() {
-        let limit = layers.count
-        for index in cellDepths.indices where cellDepths[index] > limit {
-            cellDepths[index] = limit
-        }
-    }
-
-    /// 变了的格子记成当前层；被清空的格子回到 0 层。
-    func retagDepths(since before: Grid) {
-        for index in grid.cells.indices where grid.cells[index] != before.cells[index] {
-            if grid.cells[index] == Grid.emptyCell {
-                cellDepths[index] = 0
-            } else {
-                cellDepths[index] = layers.count
-            }
-        }
-    }
-
-    /// 玩家自己做完时换成祝贺文案。试填层里做完也算，所以顺便把层收掉。
-    func updatePlayerCompletion() {
-        guard isPlayerCompleted else {
-            return
-        }
-        notice = .playerCompleted
-        clearAllLayers()
-        guard !hasRecordedCompletion else {
-            return
-        }
-        hasRecordedCompletion = true
-        onPlayerCompleted?()
-    }
-
-    func pushUndo() {
-        undoStack.append(snapshot())
-        redoStack.removeAll()
-    }
-
-    func move(from source: inout [BoardSnapshot], onto destination: inout [BoardSnapshot]) {
-        guard !isSolving, let replacement = source.popLast() else {
-            return
-        }
-        destination.append(snapshot())
-        grid = replacement.grid
-        cellDepths = replacement.depths
-        clampDepthsToLayers()
-        refreshConflicts()
-        notice = .idle
-        updatePlayerCompletion()
-        scheduleSolutionCount()
-    }
-
-    func beginSolve() -> Bool {
-        guard !isSolving else {
-            return false
-        }
-        isSolving = true
-        notice = .idle
-        return true
-    }
-
-    func fetchOutcome(for snapshot: Grid) async -> SolveOutcome {
-        let activeRules = rules
-        return await Task.detached { [engine] in
-            makeSolveOutcome(engine: engine, grid: snapshot, rules: activeRules)
-        }.value
-    }
-
-    func apply(_ outcome: SolveOutcome) {
-        isSolving = false
-        solutionCount = outcome.count
-        guard let solved = outcome.grid else {
-            notice = .unsolvable
-            return
-        }
-        usedAutoSolve = true
-        if solved != grid {
-            let before = grid
-            pushUndo()
-            grid = solved
-            retagDepths(since: before)
-            refreshConflicts()
-        }
-        clearAllLayers()
-        notice = .autoSolved
-    }
-
-    static func countSolutions(
-        engine: any SudokuBoardEngine,
-        grid: Grid,
-        rules: Rules
-    ) async -> Int {
-        await Task.detached {
-            engine.solutionCount(grid, rules: rules, limit: solutionCountLimit)
-        }.value
-    }
-}
-
-/// 假设层的写入逻辑。grid、notice 等是 private(set)，只有本文件能写，所以这些方法必须留在这里。
+/// 假设层的写入逻辑。refreshConflicts 要写 conflicts（private(set)），scheduleSolutionCount 要用私有的计数状态，所以留在这里。
 extension BoardViewModel {
     /// 开一层新假设，可以嵌套。
     func startLayer() {
