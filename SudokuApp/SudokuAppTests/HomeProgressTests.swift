@@ -127,6 +127,28 @@ final class HomeProgressTests: XCTestCase {
         XCTAssertEqual(ProgressCopy.random, "随机来一题")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false), "第 12 题，新题")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true), "第 12 题，已经做完")
+        XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false, isInProgress: true), "第 12 题，玩到一半")
+        XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true, isInProgress: true), "第 12 题，玩到一半")
+        XCTAssertEqual([ProgressCopy.resume, ProgressCopy.resumeHint], ["继续上一次", "接着上次的棋盘玩"])
+    }
+
+    func testInProgressTilesAndResumeTarget() {
+        let firstID = PuzzleFingerprint(value: "a")
+        let progress = HomeProgress(entries: bank().builtinEntries(difficulty: .easy), inProgressIDs: [firstID])
+        XCTAssertEqual(progress.tiles.map(\.isInProgress), [true, false, false])
+        let target = { (id: String, open: Set<PuzzleFingerprint>) in
+            let fingerprint = PuzzleFingerprint(value: id)
+            let record = LastPlayedRecord(id: fingerprint, difficulty: .easy, size: 9, playedAt: self.epoch)
+            return HomeProgress.resumeTarget(lastPlayed: record, inProgressIDs: open, bank: self.bank())
+        }
+        guard case .bank(let found, let level) = target("a", [firstID]) else { return XCTFail("应该能继续") }
+        XCTAssertEqual(found.id, firstID)
+        XCTAssertEqual(level, .easy)
+        XCTAssertNil(target("a", [])) // 没有存档，或存档是全解 / 新版本
+        XCTAssertNil(target("gone", [PuzzleFingerprint(value: "gone")])) // 题已不在题库
+        XCTAssertNil(HomeProgress.resumeTarget(lastPlayed: nil, inProgressIDs: [firstID], bank: bank()))
+        XCTAssertEqual(target("fixture-5", [HomeProgress.fixture5]), .fixture(.five))
+        XCTAssertEqual(target("fixture-4", [HomeProgress.fixture4]), .fixture(.four))
     }
 
     func testRouteKeepsEntryAndPuzzle() {

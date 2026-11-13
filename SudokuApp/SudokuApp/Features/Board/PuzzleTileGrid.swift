@@ -4,6 +4,8 @@ import SwiftUI
 struct ProgressCardView: View {
     let progress: HomeProgress
     let lastPlayedText: String
+    /// 为空表示没有能继续的棋盘，此时不显示按钮。
+    var onResume: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -20,6 +22,16 @@ struct ProgressCardView: View {
             Text(lastPlayedText)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            if let onResume {
+                Button(action: onResume) {
+                    Label(ProgressCopy.resume, systemImage: "play.fill")
+                        .font(.headline)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.pineGreen)
+                .accessibilityHint(ProgressCopy.resumeHint)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -45,7 +57,9 @@ struct PuzzleTileGrid: View {
             ForEach(tiles) { tile in
                 Button { onSelect(tile) } label: { cell(tile) }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(ProgressCopy.tileVoiceOver(number: tile.number, isCompleted: tile.isCompleted))
+                    .accessibilityLabel(ProgressCopy.tileVoiceOver(
+                        number: tile.number, isCompleted: tile.isCompleted, isInProgress: tile.isInProgress
+                    ))
             }
         }
         .padding(.vertical, 4)
@@ -53,16 +67,23 @@ struct PuzzleTileGrid: View {
 
     private func cell(_ tile: HomeProgress.Tile) -> some View {
         ZStack(alignment: .topTrailing) {
-            Text("\(tile.number)")
-                .font(.headline)
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(tile.isCompleted ? AppTheme.pineFill : AppTheme.raisedSurface)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(AppTheme.pineGreen, lineWidth: tile.isLastPlayed ? 2 : 0)
+            VStack(spacing: 0) {
+                Text("\(tile.number)").font(.headline)
+                if tile.isInProgress {
+                    Text(ProgressCopy.inProgress)
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
+            }
+            .foregroundStyle(AppTheme.primaryText)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(tile.isCompleted ? AppTheme.pineFill : AppTheme.raisedSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(AppTheme.pineGreen, lineWidth: tile.isLastPlayed ? 2 : 0)
+            }
             if tile.isCompleted {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.caption)
