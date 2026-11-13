@@ -282,10 +282,6 @@ private extension BoardViewModel {
         grid = replacement.grid
         cellDepths = replacement.depths
         clampDepthsToLayers()
-        // 退回到还有空格的盘面，说明已不是全解填满的样子
-        if grid.cells.contains(Grid.emptyCell) {
-            usedAutoSolve = false
-        }
         refreshConflicts()
         notice = .idle
         updatePlayerCompletion()

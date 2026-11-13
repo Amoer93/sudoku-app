@@ -58,13 +58,27 @@ final class BoardCompletionTests: XCTestCase {
         XCTAssertEqual(model.notice, .playerCompleted)
     }
 
-    func testUndoAfterAutoSolveAllowsManualCompletion() async {
+    func testUndoRedoAfterAutoSolveDoesNotCount() async {
         let model = makeModel()
         await model.autoSolve()
         model.undo()
-        XCTAssertFalse(model.usedAutoSolve)
+        model.redo()
+        // 撤销再重做回到满盘，仍然是全解的结果，不算做完
+        XCTAssertFalse(model.grid.cells.contains(Grid.emptyCell))
+        XCTAssertTrue(model.usedAutoSolve)
+        XCTAssertFalse(model.isPlayerCompleted)
+        XCTAssertNotEqual(model.notice, .playerCompleted)
+    }
+
+    func testUndoThenManualFillAfterAutoSolveDoesNotCount() async {
+        let model = makeModel()
+        await model.autoSolve()
+        model.undo()
+        // 撤销只是退回盘面，不能洗掉「用过全解」的记号
         fill(model)
-        XCTAssertEqual(model.notice, .playerCompleted)
+        XCTAssertTrue(model.usedAutoSolve)
+        XCTAssertFalse(model.isPlayerCompleted)
+        XCTAssertNotEqual(model.notice, .playerCompleted)
     }
 
     func testFullBoardWithConflictIsNotCompleted() {
