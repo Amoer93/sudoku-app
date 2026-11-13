@@ -7,6 +7,7 @@ enum ProgressCopy {
     static let allDone = "这一档全部做完啦，你太厉害了！"
     static let lastPlayedNone = "还没玩过，先选一道题吧"
     static let random = "随机来一题"
+    static let sessionLost = "上次的棋盘没能找回来，我们帮你重新开始这一题吧。"
     static let smallBoards = "小棋盘练习"
     static let emptyDifficulty = "这一档还没有题目，先玩玩小棋盘吧"
     static func progress(done: Int, total: Int) -> String { "已经做完 \(done) 道，一共 \(total) 道" }
