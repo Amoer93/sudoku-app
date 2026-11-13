@@ -14,7 +14,7 @@ struct ContentView: View {
 /// 首页文案。测试直接断言这些字符串，不依赖界面渲染。
 enum HomeCopy {
     static let title = "数独"
-    static let message = "选一个尺寸开始。4×4 和 9×9 会画粗宫线，5×5 没有宫。"
+    static let message = ProgressCopy.intro
 }
 
 #Preview {

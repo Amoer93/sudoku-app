@@ -50,6 +50,11 @@ final class LibraryViewModel {
         !bank.entries(difficulty: difficulty, source: nil, sort: .sourceThenDifficulty).isEmpty
     }
 
+    /// 某难度的内置题（首页格子用）。
+    func builtinEntries(difficulty: Difficulty) -> [PuzzleBankEntry] {
+        bank.builtinEntries(difficulty: difficulty)
+    }
+
     /// 清掉所有筛选条件。
     func clearFilters() {
         difficultyFilter = nil

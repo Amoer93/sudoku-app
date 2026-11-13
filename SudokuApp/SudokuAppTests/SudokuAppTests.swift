@@ -6,9 +6,7 @@ final class HomeScreenTests: XCTestCase {
         XCTAssertEqual(HomeCopy.title, "数独")
     }
 
-    func testMessageDescribesBoxLines() {
-        XCTAssertTrue(HomeCopy.message.contains("4×4"))
-        XCTAssertTrue(HomeCopy.message.contains("5×5"))
-        XCTAssertTrue(HomeCopy.message.contains("9×9"))
+    func testMessageIsNewIntro() {
+        XCTAssertEqual(HomeCopy.message, "选一个难度,再点一道题开始吧！")
     }
 }

@@ -8,6 +8,13 @@ struct SizePickerView: View {
     // 点击时选一次题，避免视图刷新时反复抽题、求解
     @State private var route: PlayRoute?
     @State private var isOpening = false
+    // 预览里没有进度模型，当作空进度
+    @Environment(PuzzleProgressModel.self) private var progressModel: PuzzleProgressModel?
+
+    private var progress: HomeProgress {
+        HomeProgress(entries: library.builtinEntries(difficulty: difficulty),
+                     records: progressModel?.records ?? PuzzleProgressRecords())
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,15 +35,17 @@ struct SizePickerView: View {
                         .foregroundStyle(.orange)
                         .accessibilityLabel(subtitle)
                 }
-                if !library.hasEntries(difficulty: difficulty) {
-                    Text(LibraryCopy.difficultyFallback)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                progressSection
+                Section(ProgressCopy.smallBoards) {
+                    ForEach([BoardPreset.four, .five]) { preset in
+                        Button { open(preset) } label: { presetLabel(preset) }
+                            .buttonStyle(.plain)
+                    }
                 }
-                ForEach(BoardPreset.allCases) { preset in
-                    Button { open(preset) } label: { presetLabel(preset) }
-                        .buttonStyle(.plain)
+                Button(action: openRandom) {
+                    Label(ProgressCopy.random, systemImage: "shuffle").font(.headline)
                 }
+                .buttonStyle(.plain)
                 NavigationLink(LibraryCopy.entry) {
                     LibraryView(model: library).onAppear(perform: reloadLibrary)
                 }
@@ -53,17 +62,42 @@ struct SizePickerView: View {
         }
     }
 
+    /// 进度卡片和题目格子；这一档没题时给一句提示。
+    @ViewBuilder private var progressSection: some View {
+        let current = progress
+        ProgressCardView(
+            progress: current,
+            lastPlayedText: HomeProgress.lastPlayedText(progressModel?.lastPlayed, bank: library.bank)
+        )
+        if current.total == 0 {
+            Text(ProgressCopy.emptyDifficulty)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            PuzzleTileGrid(tiles: current.tiles) { tile in open(.nine, entry: tile.entry) }
+        }
+    }
+
     /// 点击时才选题（只选一次）；9×9 的求解在后台做，完成后再跳转。
-    private func open(_ preset: BoardPreset) {
+    private func open(_ preset: BoardPreset, entry: PuzzleBankEntry? = nil) {
         guard !isOpening else {
             return
         }
         isOpening = true
         Task {
-            let draw = await startingDraw(for: preset)
-            route = PlayRoute(preset: preset, puzzle: draw?.puzzle, entry: draw?.entry)
+            var puzzle: SamplePuzzle?
+            if let entry {
+                puzzle = await LibraryViewModel.resolvePuzzle(for: entry)
+            }
+            route = PlayRoute(preset: preset, puzzle: puzzle, entry: entry)
             isOpening = false
         }
+    }
+
+    /// 在所选难度的内置题里随机来一题；没有题就用内置示例题。
+    private func openRandom() {
+        var generator = SystemRandomNumberGenerator()
+        open(.nine, entry: progress.randomEntry(using: &generator))
     }
 
     /// 重新读文件，让刚导入的题能被看到。
@@ -71,22 +105,24 @@ struct SizePickerView: View {
         library.reload(PuzzleBankStore().load())
     }
 
-    /// 9×9 按所选难度从题库抽题；抽不到或其他尺寸就用内置题
-    private func startingDraw(for preset: BoardPreset) async -> (entry: PuzzleBankEntry, puzzle: SamplePuzzle)? {
-        guard preset == .nine else { return nil }
-        return await library.newGameDrawAsync(difficulty: difficulty)
-    }
-
     private func presetLabel(_ preset: BoardPreset) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(preset.title)
-                .font(.headline)
-            Text(preset.detail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        let fixtureID = preset == .four ? HomeProgress.fixture4 : HomeProgress.fixture5
+        return HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(preset.title)
+                    .font(.headline)
+                Text(preset.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if progress.isCompleted(fixtureID) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.pineGreen)
+            }
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(preset.title),\(preset.detail)" + (progress.isCompleted(fixtureID) ? ",已经做完" : ""))
     }
 }
 
