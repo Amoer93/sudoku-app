@@ -82,13 +82,14 @@ enum BoardSessionLauncher {
         guard let identity, let progress else { return (model, nil, nil) }
         let sessions = progress.sessions
         var lostNotice: ImportNotice?
+        let hadFile = sessions.hasFile(for: identity.id) // load 会把坏文件挪走，所以要先记下
         if let session = sessions.load(puzzleID: identity.id, puzzle: puzzle),
            let restored = BoardViewModel.restored(
                title: title, puzzle: puzzle, session: session, puzzleID: identity.id, engine: engine
            ) {
             model = restored
             backfillCompletion(of: model, id: identity.id, progress: progress)
-        } else if sessions.hasFile(for: identity.id) {
+        } else if hadFile {
             lostNotice = ImportNotice(text: ProgressCopy.sessionLost, existingEntry: nil)
         }
         return (model, BoardSessionAutosave(store: sessions, puzzleID: identity.id, model: model), lostNotice)
@@ -113,7 +114,6 @@ private struct BoardAutosaveModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onChange(of: model.sessionToken) { autosave?.noteChange() }
-            // 只要不在前台就立刻写，用户随时可能划掉 App
             .onChange(of: scenePhase) { _, phase in if phase != .active { autosave?.flush() } }
             .onDisappear { autosave?.flush() }
     }
