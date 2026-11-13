@@ -108,25 +108,42 @@ final class HomeProgressTests: XCTestCase {
         let bank = bank()
         let list = bank.builtinEntries(difficulty: .easy)
         let bankRecord = LastPlayedRecord(id: list[1].id, difficulty: .easy, playedAt: epoch)
-        XCTAssertEqual(HomeProgress.lastPlayedText(bankRecord, bank: bank), "上次玩的:简单 · 第 2 题")
+        XCTAssertEqual(HomeProgress.lastPlayedText(bankRecord, bank: bank), "上次玩的：简单 · 第 2 题")
         let missing = LastPlayedRecord(id: PuzzleFingerprint(value: "gone"), difficulty: .hard, playedAt: epoch)
-        XCTAssertEqual(HomeProgress.lastPlayedText(missing, bank: bank), "上次玩的:困难")
+        XCTAssertEqual(HomeProgress.lastPlayedText(missing, bank: bank), "上次玩的：困难")
         let four = LastPlayedRecord(id: HomeProgress.fixture4, size: 4, playedAt: epoch)
-        XCTAssertEqual(HomeProgress.lastPlayedText(four, bank: bank), "上次玩的:4×4")
+        XCTAssertEqual(HomeProgress.lastPlayedText(four, bank: bank), "上次玩的：4×4")
         let five = LastPlayedRecord(id: HomeProgress.fixture5, size: 5, playedAt: epoch)
-        XCTAssertEqual(HomeProgress.lastPlayedText(five, bank: bank), "上次玩的:5×5")
-        XCTAssertEqual(HomeProgress.lastPlayedText(nil, bank: bank), "还没玩过,先选一道题吧")
+        XCTAssertEqual(HomeProgress.lastPlayedText(five, bank: bank), "上次玩的：5×5")
+        XCTAssertEqual(HomeProgress.lastPlayedText(nil, bank: bank), "还没玩过，先选一道题吧")
     }
 
     // MARK: - 文案
 
     func testCopyStrings() {
-        XCTAssertEqual(ProgressCopy.progress(done: 7, total: 30), "已经做完 7 道,一共 30 道")
-        XCTAssertEqual(ProgressCopy.progressVoiceOver(done: 7, total: 30), "这一档做完了 7 道,一共 30 道")
-        XCTAssertEqual(ProgressCopy.cumulative(12), "一共做完了 12 道题,真棒！")
+        XCTAssertEqual(ProgressCopy.progress(done: 7, total: 30), "已经做完 7 道，一共 30 道")
+        XCTAssertEqual(ProgressCopy.progressVoiceOver(done: 7, total: 30), "这一档做完了 7 道，一共 30 道")
+        XCTAssertEqual(ProgressCopy.cumulative(12), "一共做完了 12 道题，真棒！")
         XCTAssertEqual(ProgressCopy.random, "随机来一题")
-        XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false), "第 12 题,新题")
-        XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true), "第 12 题,已经做完")
+        XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false), "第 12 题，新题")
+        XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true), "第 12 题，已经做完")
+    }
+
+    func testRouteKeepsEntryAndPuzzle() {
+        let puzzle = FixtureLibrary.puzzle(for: .nine)
+        let route = PlayRoute.making(preset: .nine, entry: entry("a", score: 1), puzzle: puzzle)
+        XCTAssertNotNil(route?.entry)
+        XCTAssertNotNil(route?.puzzle)
+    }
+
+    func testRouteIsNilWhenEntryHasNoPuzzle() {
+        XCTAssertNil(PlayRoute.making(preset: .nine, entry: entry("a", score: 1), puzzle: nil))
+    }
+
+    func testRouteStillOpensFixtureWhenBothNil() {
+        let route = PlayRoute.making(preset: .four, entry: nil, puzzle: nil)
+        XCTAssertNotNil(route)
+        XCTAssertNil(route?.entry)
     }
 
     func testSummaryTextCoversZeroAndAllDone() {

@@ -2,23 +2,23 @@ import SudokuEngine
 
 /// 首页进度文案。测试直接断言这些字符串。
 enum ProgressCopy {
-    static let intro = "选一个难度,再点一道题开始吧！"
-    static let zeroDone = "还没做完过题,从第 1 题开始吧！"
-    static let allDone = "这一档全部做完啦,你太厉害了！"
-    static let lastPlayedNone = "还没玩过,先选一道题吧"
+    static let intro = "选一个难度，再点一道题开始吧！"
+    static let zeroDone = "还没做完过题，从第 1 题开始吧！"
+    static let allDone = "这一档全部做完啦，你太厉害了！"
+    static let lastPlayedNone = "还没玩过，先选一道题吧"
     static let random = "随机来一题"
     static let smallBoards = "小棋盘练习"
-    static let emptyDifficulty = "这一档还没有题目,先玩玩小棋盘吧"
-    static func progress(done: Int, total: Int) -> String { "已经做完 \(done) 道,一共 \(total) 道" }
-    static func progressVoiceOver(done: Int, total: Int) -> String { "这一档做完了 \(done) 道,一共 \(total) 道" }
-    static func cumulative(_ count: Int) -> String { "一共做完了 \(count) 道题,真棒！" }
-    static func lastPlayedFixture(size: Int) -> String { "上次玩的:\(size)×\(size)" }
+    static let emptyDifficulty = "这一档还没有题目，先玩玩小棋盘吧"
+    static func progress(done: Int, total: Int) -> String { "已经做完 \(done) 道，一共 \(total) 道" }
+    static func progressVoiceOver(done: Int, total: Int) -> String { "这一档做完了 \(done) 道，一共 \(total) 道" }
+    static func cumulative(_ count: Int) -> String { "一共做完了 \(count) 道题，真棒！" }
+    static func lastPlayedFixture(size: Int) -> String { "上次玩的：\(size)×\(size)" }
     static func lastPlayedBank(difficulty: Difficulty, number: Int?) -> String {
-        guard let number else { return "上次玩的:" + LibraryCopy.title(difficulty) }
-        return "上次玩的:\(LibraryCopy.title(difficulty)) · 第 \(number) 题"
+        guard let number else { return "上次玩的：" + LibraryCopy.title(difficulty) }
+        return "上次玩的：\(LibraryCopy.title(difficulty)) · 第 \(number) 题"
     }
     static func tileVoiceOver(number: Int, isCompleted: Bool) -> String {
-        "第 \(number) 题,\(isCompleted ? "已经做完" : "新题")"
+        "第 \(number) 题，\(isCompleted ? "已经做完" : "新题")"
     }
 }
 

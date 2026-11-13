@@ -89,7 +89,9 @@ struct SizePickerView: View {
             if let entry {
                 puzzle = await LibraryViewModel.resolvePuzzle(for: entry)
             }
-            route = PlayRoute(preset: preset, puzzle: puzzle, entry: entry)
+            if let newRoute = PlayRoute.making(preset: preset, entry: entry, puzzle: puzzle) {
+                route = newRoute
+            }
             isOpening = false
         }
     }
@@ -122,7 +124,7 @@ struct SizePickerView: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(preset.title),\(preset.detail)" + (progress.isCompleted(fixtureID) ? ",已经做完" : ""))
+        .accessibilityLabel("\(preset.title)，\(preset.detail)" + (progress.isCompleted(fixtureID) ? "，已经做完" : ""))
     }
 }
 

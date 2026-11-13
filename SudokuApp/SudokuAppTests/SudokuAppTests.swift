@@ -7,6 +7,6 @@ final class HomeScreenTests: XCTestCase {
     }
 
     func testMessageIsNewIntro() {
-        XCTAssertEqual(HomeCopy.message, "选一个难度,再点一道题开始吧！")
+        XCTAssertEqual(HomeCopy.message, "选一个难度，再点一道题开始吧！")
     }
 }
