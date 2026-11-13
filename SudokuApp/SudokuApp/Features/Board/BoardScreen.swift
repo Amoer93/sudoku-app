@@ -55,7 +55,11 @@ struct BoardScreen: View {
     @ViewBuilder
     private var content: some View {
         if let model {
-            BoardContentView(model: model, bankEntry: bankEntry)
+            BoardContentView(
+                model: model,
+                bankEntry: bankEntry,
+                identity: ProgressPuzzleIdentity(bankEntry: bankEntry, preset: preset, isCustomPuzzle: puzzle != nil)
+            )
         } else {
             ProgressView()
                 .onAppear {
@@ -82,6 +86,10 @@ struct BoardScreen: View {
 private struct BoardContentView: View {
     @Bindable var model: BoardViewModel
     let bankEntry: PuzzleBankEntry?
+    /// 要记进度的题；拍照导入等不记的题为空
+    let identity: ProgressPuzzleIdentity?
+    // 预览和测试没有注入进度时为空，什么都不记
+    @Environment(PuzzleProgressModel.self) private var progress: PuzzleProgressModel?
     // 后台评级完成后才变 true
     @State private var needsTrial = false
     @AppStorage("showCandidates") private var showCandidates = false
@@ -124,6 +132,16 @@ private struct BoardContentView: View {
         .task {
             if let bankEntry {
                 needsTrial = await TrialTagCache.shared.needsTrial(for: bankEntry)
+            }
+        }
+        .onAppear {
+            if let identity {
+                progress?.setLastPlayed(id: identity.id, difficulty: identity.difficulty, size: identity.size)
+            }
+        }
+        .onChange(of: model.notice) { _, newNotice in
+            if newNotice == .playerCompleted, let identity {
+                progress?.markCompleted(id: identity.id)
             }
         }
     }

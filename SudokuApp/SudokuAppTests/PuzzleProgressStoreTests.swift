@@ -117,6 +117,7 @@ final class PuzzleProgressStoreTests: XCTestCase {
 
         XCTAssertEqual(model.records.completed.count, 1)
         XCTAssertEqual(model.records.completed[0].completedAt, firstDate)
+        XCTAssertEqual(model.records.completed[0].completionCount, 2)
         XCTAssertEqual(PuzzleProgressStore(fileURL: fileURL).load().records.completed.count, 1)
     }
 
