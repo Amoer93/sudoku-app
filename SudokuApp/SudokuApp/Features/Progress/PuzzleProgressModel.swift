@@ -31,13 +31,11 @@ final class PuzzleProgressModel {
         persist()
     }
 
-    /// 记下最近玩的题。固定题没有难度，只带尺寸。
     func setLastPlayed(id: PuzzleFingerprint, difficulty: Difficulty? = nil, size: Int? = nil, at date: Date = Date()) {
         records.lastPlayed = LastPlayedRecord(id: id, difficulty: difficulty, size: size, playedAt: date)
         persist()
     }
 
-    /// 所有题（含固定题）的累计完成次数，给首页「累计」用。
     var totalCompletions: Int {
         records.completed.reduce(0) { total, record in
             total + record.completionCount

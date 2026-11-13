@@ -90,6 +90,25 @@ final class BoardCompletionTests: XCTestCase {
         XCTAssertNotEqual(model.notice, .playerCompleted)
     }
 
+    func testCompletionRecordsOncePerGame() {
+        let model = makeModel()
+        var recordCount = 0
+        model.onPlayerCompleted = { recordCount += 1 }
+        fill(model)
+        model.undo()
+        model.redo()
+        XCTAssertEqual(recordCount, 1)
+        // 撤销后重填最后一格，祝贺文案会再出现，但不再记录
+        model.undo()
+        model.select(index: 15)
+        model.enter(1)
+        XCTAssertEqual(model.notice, .playerCompleted)
+        XCTAssertEqual(recordCount, 1)
+        model.clearUserEntries() // 清空后重新做完才算新的一次
+        fill(model)
+        XCTAssertEqual(recordCount, 2)
+    }
+
     func testCompletingInsideLayerClearsLayers() {
         let model = makeModel()
         model.startLayer()

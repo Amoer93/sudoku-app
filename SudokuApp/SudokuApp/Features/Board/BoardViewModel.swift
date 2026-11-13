@@ -57,6 +57,10 @@ final class BoardViewModel {
     private(set) var isSolving = false
     /// 用过「全解」：盘面是程序填的，不算玩家自己做完。清空后才重新算。
     private(set) var usedAutoSolve = false
+    /// 这一局已记过「做完」：只有清空或新开一局才清掉，撤销重做不动它。
+    private(set) var hasRecordedCompletion = false
+    /// 玩家做完时通知外面记录；每局最多一次。
+    @ObservationIgnored var onPlayerCompleted: (() -> Void)?
 
     init(title: String, puzzle: SamplePuzzle, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
         self.title = title
@@ -157,6 +161,7 @@ final class BoardViewModel {
         retagDepths(since: before)
         clearAllLayers()
         usedAutoSolve = false
+        hasRecordedCompletion = false
         refreshConflicts()
         notice = .cleared
         scheduleSolutionCount()
@@ -267,6 +272,11 @@ private extension BoardViewModel {
         }
         notice = .playerCompleted
         clearAllLayers()
+        guard !hasRecordedCompletion else {
+            return
+        }
+        hasRecordedCompletion = true
+        onPlayerCompleted?()
     }
 
     func pushUndo() {

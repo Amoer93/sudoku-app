@@ -3,11 +3,9 @@ import SudokuEngine
 /// 记进度时用的题目身份。没有稳定身份的题（拍照导入、9×9 固定题）不记。
 struct ProgressPuzzleIdentity: Equatable {
     let id: PuzzleFingerprint
-    /// 固定题没有难度，不能随便标成「简单」。
-    let difficulty: Difficulty?
+    let difficulty: Difficulty? // 固定题为 nil
     let size: Int
 
-    /// - Parameter isCustomPuzzle: 外部传进来的题面（拍照导入等），不是内置固定题。
     init?(bankEntry: PuzzleBankEntry?, preset: BoardPreset, isCustomPuzzle: Bool) {
         if let bankEntry {
             id = bankEntry.id

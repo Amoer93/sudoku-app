@@ -137,11 +137,7 @@ private struct BoardContentView: View {
         .onAppear {
             if let identity {
                 progress?.setLastPlayed(id: identity.id, difficulty: identity.difficulty, size: identity.size)
-            }
-        }
-        .onChange(of: model.notice) { _, newNotice in
-            if newNotice == .playerCompleted, let identity {
-                progress?.markCompleted(id: identity.id)
+                model.onPlayerCompleted = { progress?.markCompleted(id: identity.id) }
             }
         }
     }
