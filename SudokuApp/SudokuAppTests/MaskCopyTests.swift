@@ -18,6 +18,11 @@ final class MaskCopyTests: XCTestCase {
         XCTAssertEqual(BoardCopy.layerStatus(2), "当前第 2 层试填")
     }
 
+    func testSolveButtonCopy() {
+        XCTAssertEqual(BoardCopy.autoSolve, "全解")
+        XCTAssertEqual(BoardCopy.multipleSolutions, "当前盘面有多个解，全解只填入其中一个。")
+    }
+
     func testNoHintAndSolvedCopy() {
         XCTAssertEqual(BoardCopy.noHint, "当前无唯一解，可点「试一试」尝试。")
         XCTAssertEqual(BoardCopy.solved, "已填入解。")
