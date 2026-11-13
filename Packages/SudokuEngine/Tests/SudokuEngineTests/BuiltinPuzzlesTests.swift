@@ -4,8 +4,9 @@ import XCTest
 
 /// 校验内置题库 BuiltinPuzzles.json 的内容。
 final class BuiltinPuzzlesTests: XCTestCase {
-    private let expectedTierCounts: [Difficulty: Int] = [.easy: 30, .medium: 30, .hard: 60, .expert: 30]
-    private let overrideSERating = 6.5
+    private let expectedTierCounts: [Difficulty: Int] = [.easy: 30, .medium: 30, .hard: 30, .expert: 60]
+    private let logicExpertSERating = 6.5
+    private let trialAndErrorSERating = 11.0
     private let minimumEasyGivens = 30
 
     private func loadEntries() throws -> [PuzzleBankEntry] {
@@ -32,7 +33,7 @@ final class BuiltinPuzzlesTests: XCTestCase {
             let count = entries.filter { $0.difficulty == tier }.count
             XCTAssertEqual(count, expectedTierCounts[tier], "tier \(tier)")
         }
-        XCTAssertEqual(entries.filter { $0.tierOverride != nil }.count, 30)
+        XCTAssertEqual(entries.filter { $0.tierOverride != nil }.count, 0)
     }
 
     func testEasyEntriesHaveEnoughGivens() throws {
@@ -42,12 +43,23 @@ final class BuiltinPuzzlesTests: XCTestCase {
         }
     }
 
-    func testExpertEntriesNeedTrialAndError() throws {
+    func testExpertEntriesSplitBetweenLogicAndTrialAndError() throws {
+        var trialCount = 0
+        var logicCount = 0
         for entry in try loadEntries() where entry.difficulty == .expert {
             let grade = try DifficultyGrader.grade(makePuzzleGrid(entry), rules: .nineByNine).get()
-            XCTAssertEqual(grade.hardestTechnique, .trialAndError, entry.id.value)
             XCTAssertNil(entry.tierOverride, entry.id.value)
+            if grade.hardestTechnique == .trialAndError {
+                trialCount += 1
+                XCTAssertEqual(grade.seRating, trialAndErrorSERating, entry.id.value)
+            } else {
+                logicCount += 1
+                XCTAssertEqual(grade.hardestTechnique, .simpleColoring, entry.id.value)
+                XCTAssertEqual(grade.seRating, logicExpertSERating, entry.id.value)
+            }
         }
+        XCTAssertEqual(trialCount, 30)
+        XCTAssertEqual(logicCount, 30)
     }
 
     func testFingerprintsAreUniqueAndMatchIds() throws {
@@ -78,15 +90,9 @@ final class BuiltinPuzzlesTests: XCTestCase {
         for entry in try loadEntries() {
             let grid = try makePuzzleGrid(entry)
             let grade = try DifficultyGrader.grade(grid, rules: .nineByNine).get()
-            if let override = entry.tierOverride {
-                // 被指定档位的题：评分器仍判专家（SE 6.5），入库档位是覆盖值
-                XCTAssertEqual(override, .hard, entry.id.value)
-                XCTAssertEqual(entry.difficulty, override, entry.id.value)
-                XCTAssertEqual(grade.difficulty, .expert, entry.id.value)
-                XCTAssertEqual(grade.seRating, overrideSERating, entry.id.value)
-            } else {
-                XCTAssertEqual(grade.difficulty, entry.difficulty, entry.id.value)
-            }
+            // 内置题库目前没有覆盖，入库档位必须等于评分器结果
+            XCTAssertNil(entry.tierOverride, entry.id.value)
+            XCTAssertEqual(grade.difficulty, entry.difficulty, entry.id.value)
             XCTAssertEqual(grade.seRating, entry.seRating, entry.id.value)
             XCTAssertEqual(grade.score, entry.score, entry.id.value)
         }

@@ -135,11 +135,11 @@ final class PuzzleBankTests: XCTestCase {
 
     func testLoadBuiltin() throws {
         let builtin = try PuzzleBank.loadBuiltin()
-        // 简单 30、中等 30、困难 60（含 30 道指定放入的逻辑专家题）、专家 30（需要试数）
+        // 简单 30、中等 30、困难 30、专家 60（30 道逻辑专家题 + 30 道需要试数）
         XCTAssertEqual(builtin.filter { $0.difficulty == .easy }.count, 30)
         XCTAssertEqual(builtin.filter { $0.difficulty == .medium }.count, 30)
-        XCTAssertEqual(builtin.filter { $0.difficulty == .hard }.count, 60)
-        XCTAssertEqual(builtin.filter { $0.difficulty == .expert }.count, 30)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .hard }.count, 30)
+        XCTAssertEqual(builtin.filter { $0.difficulty == .expert }.count, 60)
         XCTAssertEqual(builtin.count, 150)
         XCTAssertTrue(builtin.allSatisfy { $0.source == .builtin })
         XCTAssertTrue(builtin.allSatisfy { $0.size == 9 })

@@ -11,7 +11,7 @@ import XCTest
 /// `VERIFY_BUILTIN_PUZZLES=1 swift test -c release --filter BuiltinPuzzleGenerationTests`
 final class BuiltinPuzzleGenerationTests: XCTestCase {
     private let perTierGoal = 30
-    /// 第一阶段里"逻辑专家题"（评分器判专家、但不需要试数）的数量；它们入库时放进困难档。
+    /// 第一阶段里"逻辑专家题"（评分器判专家、但不需要试数）的数量；它们和试数题一起组成专家档。
     private let logicExpertGoal = 30
     /// 第二阶段：需要试数的专家题数量。
     private let trialExpertGoal = 30
@@ -70,13 +70,11 @@ final class BuiltinPuzzleGenerationTests: XCTestCase {
         var sorted: [PuzzleBankEntry] = []
         sorted.append(contentsOf: sortedByID(gradedByTier[.easy, default: [:]]))
         sorted.append(contentsOf: sortedByID(gradedByTier[.medium, default: [:]]))
-        // 困难档 = 评分为困难的题 + 被指定放进困难档的逻辑专家题
-        var hardTier = gradedByTier[.hard, default: [:]]
-        for (key, entry) in gradedByTier[.expert, default: [:]] {
-            hardTier[key] = withHardOverride(entry)
-        }
-        sorted.append(contentsOf: sortedByID(hardTier))
-        sorted.append(contentsOf: sortedByID(trialEntries))
+        sorted.append(contentsOf: sortedByID(gradedByTier[.hard, default: [:]]))
+        // 专家档 = 30 道逻辑专家题（SE 6.5）+ 30 道需要试数的题（SE 11.0），指纹不会重复
+        var expertTier = gradedByTier[.expert, default: [:]]
+        expertTier.merge(trialEntries) { logicEntry, _ in logicEntry }
+        sorted.append(contentsOf: sortedByID(expertTier))
         return GenerationResult(jsonText: try makeJSONText(sorted), entries: sorted, attempts: totalAttempts)
     }
 
@@ -156,15 +154,6 @@ final class BuiltinPuzzleGenerationTests: XCTestCase {
             source: .builtin,
             // 固定时间，保证每次生成的文件完全一致
             addedAt: Date(timeIntervalSince1970: 0)
-        )
-    }
-
-    /// 把评分为专家的逻辑题放进困难档，并记录覆盖。
-    private func withHardOverride(_ entry: PuzzleBankEntry) -> PuzzleBankEntry {
-        PuzzleBankEntry(
-            id: entry.id, size: entry.size, givens: entry.givens, difficulty: entry.difficulty,
-            seRating: entry.seRating, score: entry.score, source: .builtin, addedAt: entry.addedAt,
-            tierOverride: .hard
         )
     }
 
