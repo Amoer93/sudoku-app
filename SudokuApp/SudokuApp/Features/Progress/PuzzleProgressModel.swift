@@ -11,11 +11,14 @@ final class PuzzleProgressModel {
     private(set) var isReadOnly: Bool
 
     @ObservationIgnored private let store: PuzzleProgressStore
+    /// 进行中棋盘的存档；有自己的版本规则，不受 isReadOnly 影响。
+    @ObservationIgnored let sessions: BoardSessionStore
 
     var lastPlayed: LastPlayedRecord? { records.lastPlayed }
 
-    init(store: PuzzleProgressStore = PuzzleProgressStore()) {
+    init(store: PuzzleProgressStore = PuzzleProgressStore(), sessions: BoardSessionStore = BoardSessionStore()) {
         self.store = store
+        self.sessions = sessions
         let result = store.load()
         records = result.records
         isReadOnly = result.isReadOnly

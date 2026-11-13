@@ -12,7 +12,10 @@ struct BoardScreen: View {
     /// 题来自题库时的条目；用来在顶部显示「需试错」，为空就不显示
     let bankEntry: PuzzleBankEntry?
     let engine: any SudokuBoardEngine
+    // 预览和测试没有注入进度时为空，不存也不恢复
+    @Environment(PuzzleProgressModel.self) private var progress: PuzzleProgressModel?
     @State private var model: BoardViewModel?
+    @State private var autosave: BoardSessionAutosave?
     @State private var banner = ImportBannerState()
     @State private var existingPuzzle: SamplePuzzle?
     @State private var isExistingShown = false
@@ -55,19 +58,20 @@ struct BoardScreen: View {
     @ViewBuilder
     private var content: some View {
         if let model {
-            BoardContentView(
-                model: model,
-                bankEntry: bankEntry,
-                identity: ProgressPuzzleIdentity(bankEntry: bankEntry, preset: preset, isCustomPuzzle: puzzle != nil)
-            )
+            BoardContentView(model: model, bankEntry: bankEntry, identity: progressIdentity, autosave: autosave)
         } else {
             ProgressView()
                 .onAppear {
                     // 只建一次；之后父视图重建不会再进这里
                     let start = puzzle ?? FixtureLibrary.puzzle(for: preset)
-                    model = BoardViewModel(title: preset.title, puzzle: start, engine: engine)
-                    if let notice {
-                        banner.show(notice)
+                    let launch = BoardSessionLauncher.start(
+                        title: preset.title, puzzle: start, identity: progressIdentity,
+                        progress: progress, engine: engine
+                    )
+                    model = launch.model
+                    autosave = launch.autosave
+                    if let shown = notice ?? launch.lostNotice {
+                        banner.show(shown)
                     }
                 }
         }
@@ -88,6 +92,8 @@ private struct BoardContentView: View {
     let bankEntry: PuzzleBankEntry?
     /// 要记进度的题；拍照导入等不记的题为空
     let identity: ProgressPuzzleIdentity?
+    /// 自动存档；没有身份或没有进度模型时为空
+    let autosave: BoardSessionAutosave?
     // 预览和测试没有注入进度时为空，什么都不记
     @Environment(PuzzleProgressModel.self) private var progress: PuzzleProgressModel?
     // 后台评级完成后才变 true
@@ -137,8 +143,20 @@ private struct BoardContentView: View {
         .onAppear {
             if let identity {
                 progress?.setLastPlayed(id: identity.id, difficulty: identity.difficulty, size: identity.size)
-                model.onPlayerCompleted = { progress?.markCompleted(id: identity.id) }
+                model.onPlayerCompleted = {
+                    progress?.markCompleted(id: identity.id)
+                    autosave?.clear()
+                }
             }
+        }
+        .autosaving(autosave, model: model)
+    }
+
+    private func clearEntries() {
+        model.clearUserEntries()
+        // 提示文案是 .cleared 才说明真的清掉了；这时存档也一起删
+        if model.notice == .cleared {
+            autosave?.clear()
         }
     }
 
@@ -193,7 +211,7 @@ private struct BoardContentView: View {
                 hint: BoardCopy.clearAllHint,
                 isEnabled: model.canClear,
                 action: {
-                    model.clearUserEntries()
+                    clearEntries()
                 }
             )
             BoardActionButton(
