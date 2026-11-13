@@ -27,4 +27,11 @@ final class MaskCopyTests: XCTestCase {
         XCTAssertEqual(BoardCopy.noHint, "当前无唯一解，可点「试一试」尝试。")
         XCTAssertEqual(BoardCopy.solved, "已填入解。")
     }
+
+    func testCompletionCopyIsNotWarning() {
+        XCTAssertEqual(BoardCopy.playerCompleted, "太棒了，这道题做完啦！")
+        XCTAssertEqual(BoardCopy.autoSolved, "答案已经填好啦。想算做完，可以点「清空」再自己做一遍！")
+        XCTAssertFalse(BoardNotice.playerCompleted.isWarning)
+        XCTAssertFalse(BoardNotice.autoSolved.isWarning)
+    }
 }

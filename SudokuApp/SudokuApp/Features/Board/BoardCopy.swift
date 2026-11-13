@@ -5,6 +5,8 @@ enum BoardCopy {
     static let enterDigit = "选择数字填入，或清除这一格。"
     static let solving = "正在求解…"
     static let solved = "已填入解。"
+    static let playerCompleted = "太棒了，这道题做完啦！"
+    static let autoSolved = "答案已经填好啦。想算做完，可以点「清空」再自己做一遍！"
     static let unsolvable = "按当前填法没有解，试试撤销几步。"
     static let cleared = "已清除你填入的数字。"
     static let checkingSolutions = "正在查看这道题有几个解…"
@@ -60,6 +62,8 @@ enum BoardNotice: Equatable {
     case idle
     case givenLocked
     case solved
+    case autoSolved
+    case playerCompleted
     case unsolvable
     case cleared
     case hinted
@@ -75,6 +79,10 @@ enum BoardNotice: Equatable {
             return BoardCopy.givenLocked
         case .solved:
             return BoardCopy.solved
+        case .autoSolved:
+            return BoardCopy.autoSolved
+        case .playerCompleted:
+            return BoardCopy.playerCompleted
         case .unsolvable:
             return BoardCopy.unsolvable
         case .cleared:
@@ -94,7 +102,7 @@ enum BoardNotice: Equatable {
         switch self {
         case .givenLocked, .unsolvable, .hintBlockedByConflicts:
             return true
-        case .idle, .solved, .cleared, .hinted, .noHint, .assumption:
+        case .idle, .solved, .autoSolved, .playerCompleted, .cleared, .hinted, .noHint, .assumption:
             return false
         }
     }

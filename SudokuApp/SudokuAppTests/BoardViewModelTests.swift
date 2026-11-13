@@ -208,7 +208,7 @@ final class BoardViewModelTests: XCTestCase {
         let grid = await model.grid
         XCTAssertEqual(grid, solved)
         let notice = await model.notice
-        XCTAssertEqual(notice, .solved)
+        XCTAssertEqual(notice, .autoSolved)
         let text = await model.solutionCountText
         XCTAssertEqual(text, BoardCopy.uniqueSolution)
         await model.undo()
@@ -239,7 +239,7 @@ final class BoardViewModelTests: XCTestCase {
         let canUndo = await model.canUndo
         XCTAssertFalse(canUndo)
         let notice = await model.notice
-        XCTAssertEqual(notice, .solved)
+        XCTAssertEqual(notice, .autoSolved)
     }
 
     func testRefreshDuringSolveKeepsTheAnswer() async {
@@ -256,7 +256,7 @@ final class BoardViewModelTests: XCTestCase {
         let grid = await model.grid
         XCTAssertEqual(grid, solved)
         let notice = await model.notice
-        XCTAssertEqual(notice, .solved)
+        XCTAssertEqual(notice, .autoSolved)
     }
 }
 

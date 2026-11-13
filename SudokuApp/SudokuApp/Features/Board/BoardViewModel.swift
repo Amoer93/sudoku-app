@@ -55,6 +55,12 @@ final class BoardViewModel {
     private(set) var solutionCount: Int?
     private(set) var notice: BoardNotice = .idle
     private(set) var isSolving = false
+    /// 用过「全解」：盘面是程序填的，不算玩家自己做完。清空后才重新算。
+    private(set) var usedAutoSolve = false
+    /// 这一局已记过「做完」：只有清空或新开一局才清掉，撤销重做不动它。
+    private(set) var hasRecordedCompletion = false
+    /// 玩家做完时通知外面记录；每局最多一次。
+    @ObservationIgnored var onPlayerCompleted: (() -> Void)?
 
     init(title: String, puzzle: SamplePuzzle, engine: any SudokuBoardEngine = EngineBoardAdapter()) {
         self.title = title
@@ -133,6 +139,7 @@ final class BoardViewModel {
         retagDepths(since: before)
         refreshConflicts()
         notice = .idle
+        updatePlayerCompletion()
         scheduleSolutionCount()
     }
 
@@ -153,6 +160,8 @@ final class BoardViewModel {
         grid = next
         retagDepths(since: before)
         clearAllLayers()
+        usedAutoSolve = false
+        hasRecordedCompletion = false
         refreshConflicts()
         notice = .cleared
         scheduleSolutionCount()
@@ -256,6 +265,20 @@ private extension BoardViewModel {
         }
     }
 
+    /// 玩家自己做完时换成祝贺文案。试填层里做完也算，所以顺便把层收掉。
+    func updatePlayerCompletion() {
+        guard isPlayerCompleted else {
+            return
+        }
+        notice = .playerCompleted
+        clearAllLayers()
+        guard !hasRecordedCompletion else {
+            return
+        }
+        hasRecordedCompletion = true
+        onPlayerCompleted?()
+    }
+
     func pushUndo() {
         undoStack.append(snapshot())
         redoStack.removeAll()
@@ -271,6 +294,7 @@ private extension BoardViewModel {
         clampDepthsToLayers()
         refreshConflicts()
         notice = .idle
+        updatePlayerCompletion()
         scheduleSolutionCount()
     }
 
@@ -297,6 +321,7 @@ private extension BoardViewModel {
             notice = .unsolvable
             return
         }
+        usedAutoSolve = true
         if solved != grid {
             let before = grid
             pushUndo()
@@ -305,7 +330,7 @@ private extension BoardViewModel {
             refreshConflicts()
         }
         clearAllLayers()
-        notice = .solved
+        notice = .autoSolved
     }
 
     static func countSolutions(
@@ -343,6 +368,7 @@ extension BoardViewModel {
         redoStack.removeAll()
         refreshConflicts()
         notice = .idle
+        updatePlayerCompletion()
         scheduleSolutionCount()
     }
 
