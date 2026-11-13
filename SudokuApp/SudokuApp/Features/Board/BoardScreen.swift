@@ -1,7 +1,7 @@
 import SudokuEngine
 import SwiftUI
 
-/// 一局棋盘：选格、输入、冲突高亮、撤销和自动解题。
+/// 一局棋盘：选格、输入、冲突高亮、撤销和全解。
 /// 视图会被父视图反复重建，所以 ViewModel 只在第一次出现时创建一次，
 /// 避免每次 init 都新建模型、在主线程多算一次 `conflicts`。
 struct BoardScreen: View {
@@ -98,7 +98,6 @@ private struct BoardContentView: View {
                 candidatesToggle
                 board
                 controls
-                solveButton
                 filterToggles
                 NumberPadView(
                     size: model.rules.size,
@@ -192,6 +191,8 @@ private struct BoardContentView: View {
                     model.showHint()
                 }
             )
+            // 「全解」紧跟在「提示」后面
+            solveButton
         }
     }
 
@@ -261,7 +262,8 @@ private struct BoardContentView: View {
     }
 
     private var solveLabel: some View {
-        HStack(spacing: 8) {
+        // 图标在上、标题在下，和同一行的其他按钮保持一样的尺寸
+        VStack(spacing: 2) {
             if model.isSolving {
                 ProgressView()
                     .controlSize(.small)
@@ -270,6 +272,9 @@ private struct BoardContentView: View {
                     .accessibilityHidden(true)
             }
             Text(BoardCopy.autoSolve)
+                .font(.caption)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, minHeight: 44)
     }
@@ -325,7 +330,7 @@ private struct BoardActionButton: View {
     }
 }
 
-/// 主按钮：松绿底、浅色字。只用在棋盘页的「自动解题」。
+/// 主按钮：松绿底、浅色字。只用在棋盘页的「全解」。
 private struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
