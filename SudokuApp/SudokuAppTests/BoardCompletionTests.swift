@@ -100,8 +100,7 @@ final class BoardCompletionTests: XCTestCase {
         XCTAssertEqual(recordCount, 1)
         // 撤销后重填最后一格，祝贺文案会再出现，但不再记录
         model.undo()
-        model.select(index: 15)
-        model.enter(1)
+        fill(model) // 已填的格子不动，只写最后一个空格
         XCTAssertEqual(model.notice, .playerCompleted)
         XCTAssertEqual(recordCount, 1)
         model.clearUserEntries() // 清空后重新做完才算新的一次
