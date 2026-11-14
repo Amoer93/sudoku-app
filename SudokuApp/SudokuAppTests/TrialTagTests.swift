@@ -89,8 +89,8 @@ final class TrialTagTests: XCTestCase {
     }
 
     func testAccessibilityCopy() {
-        XCTAssertEqual(TrialTagCopy.text, "需试错")
-        XCTAssertEqual(TrialTagCopy.accessibilityLabel, "需试错：这道题可能要先猜一个数，再检查对不对。")
+        XCTAssertEqual(TrialTagCopy.text, "先猜一猜")
+        XCTAssertEqual(TrialTagCopy.accessibilityLabel, "先猜一猜：这道题可能要先猜一个数，再检查对不对。")
         XCTAssertEqual(TrialTagCopy.explanation, "这道题可能要先猜一个数，再检查对不对。")
     }
 

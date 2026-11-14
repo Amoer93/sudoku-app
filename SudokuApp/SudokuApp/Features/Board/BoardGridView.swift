@@ -209,7 +209,7 @@ struct BoardGridView: View {
         }
     }
 
-    /// 非题目格带着蒙版（试填）底色。
+    /// 非题目格带着试试层底色。
     private func hasLayerTint(_ cell: BoardCellState) -> Bool {
         return AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth) != nil && !cell.isGiven
     }
@@ -220,8 +220,8 @@ struct BoardGridView: View {
             return AppTheme.conflictBackground
         }
         if cell.isHinted, cell.isAssumptionHint {
-            // 假设格用青色，和确定格的金色一眼分得开（试填层，之后再改）
-            return Color.teal.opacity(0.4)
+            // 建议先试试的格子用淡紫底，和确定格的金色、松绿主题都分得开
+            return AppTheme.assumptionHintBackground
         }
         if cell.isHinted {
             return AppTheme.hintGoldBackground

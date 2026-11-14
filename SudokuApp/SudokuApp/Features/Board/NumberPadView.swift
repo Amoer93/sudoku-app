@@ -4,7 +4,7 @@ import SwiftUI
 struct NumberPadView: View {
     let size: Int
     let isEnabled: Bool
-    /// 自动筛选禁用的数字，变灰且不能点。
+    /// 「灰掉不能填的」禁用的数字，变灰且不能点。
     var disabledDigits: Set<Int> = []
     let onDigit: (Int) -> Void
     let onClear: () -> Void

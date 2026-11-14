@@ -26,7 +26,7 @@ final class LibraryViewModel {
         trialFlags[entry.id] = await trialCache.needsTrial(for: entry)
     }
 
-    /// 这一行要不要显示「需试错」。
+    /// 这一行要不要显示「先猜一猜」。
     func needsTrial(_ entry: PuzzleBankEntry) -> Bool {
         trialFlags[entry.id] ?? false
     }
@@ -104,7 +104,7 @@ final class LibraryViewModel {
         await newGameDrawAsync(difficulty: difficulty)?.puzzle
     }
 
-    /// 同上，但连抽到的题库条目一起返回，棋盘页要用它显示「需试错」。
+    /// 同上，但连抽到的题库条目一起返回，棋盘页要用它显示「先猜一猜」。
     func newGameDrawAsync(difficulty: Difficulty) async -> (entry: PuzzleBankEntry, puzzle: SamplePuzzle)? {
         var generator = SystemRandomNumberGenerator()
         guard let entry = bank.randomEntry(difficulty: difficulty, source: nil, using: &generator) else {
@@ -127,7 +127,7 @@ struct PlayRoute: Identifiable, Hashable {
     let id = UUID()
     let preset: BoardPreset
     let puzzle: SamplePuzzle?
-    /// 题来自题库时带上条目，棋盘页据此显示「需试错」
+    /// 题来自题库时带上条目，棋盘页据此显示「先猜一猜」
     var entry: PuzzleBankEntry?
 
     /// 创建路由；题库条目缺少题面时返回 nil（否则棋盘会显示默认示例题）

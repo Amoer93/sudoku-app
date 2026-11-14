@@ -1,4 +1,4 @@
-/// 「高亮行列宫」用到的常量，集中在一处方便调整和测试。
+/// 「点亮相关格子」用到的常量，集中在一处方便调整和测试。
 enum BoardHighlightStyle {
     /// 开关在本地存储里的键名
     static let storageKey = "highlightPeers"

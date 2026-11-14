@@ -49,6 +49,6 @@ final class MaskTintTests: XCTestCase {
     }
 
     func testCopyConstant() {
-        XCTAssertEqual(BoardCopy.showCandidates, "显示候选数")
+        XCTAssertEqual(BoardCopy.showCandidates, "显示能填的数")
     }
 }

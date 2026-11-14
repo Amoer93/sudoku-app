@@ -9,7 +9,7 @@ struct BoardScreen: View {
     /// 指定题目（如拍照导入）；为空就用内置题
     let puzzle: SamplePuzzle?
     let notice: ImportNotice?
-    /// 题来自题库时的条目；用来在顶部显示「需试错」，为空就不显示
+    /// 题来自题库时的条目；用来在顶部显示「先猜一猜」，为空就不显示
     let bankEntry: PuzzleBankEntry?
     let engine: any SudokuBoardEngine
     // 预览和测试没有注入进度时为空，不存也不恢复
@@ -231,11 +231,14 @@ private struct BoardContentView: View {
     /// 蒙版控制放在棋盘上方，一行排完。
     private var layerControls: some View {
         HStack(spacing: 8) {
-            Text(BoardCopy.layerStatus(model.currentLayerDepth))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            // 0 层没有状态可说，不显示这行字
+            if model.currentLayerDepth > 0 {
+                Text(BoardCopy.layerStatus(model.currentLayerDepth))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
             Spacer(minLength: 0)
             LayerCapsuleButton(
                 title: BoardCopy.startLayer,
@@ -262,12 +265,13 @@ private struct BoardContentView: View {
     private var candidatesToggle: some View {
         Toggle(BoardCopy.showCandidates, isOn: $showCandidates)
             .toggleStyle(.switch)
+            .tint(AppTheme.pineGreen)
             .controlSize(.small)
             .font(.caption)
             .accessibilityHint(BoardCopy.showCandidatesHint)
     }
 
-    /// 自动筛选和高亮行列宫两个开关并排放，小字号。
+    /// 「灰掉不能填的」和「点亮相关格子」两个开关并排放，小字号。
     private var filterToggles: some View {
         HStack(spacing: 16) {
             Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
@@ -276,6 +280,7 @@ private struct BoardContentView: View {
                 .accessibilityHint(BoardCopy.highlightPeersHint)
         }
         .toggleStyle(.switch)
+        .tint(AppTheme.pineGreen)
         .controlSize(.small)
         .font(.caption)
     }

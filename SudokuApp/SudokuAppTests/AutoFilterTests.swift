@@ -1,7 +1,7 @@
 @testable import SudokuApp
 import XCTest
 
-/// 自动筛选：同行、同列、同宫已有的数字要被禁用。
+/// 「灰掉不能填的」：同行、同列、同宫已有的数字要被禁用。
 @MainActor
 final class AutoFilterTests: XCTestCase {
     func testNineByNineRowColumnAndBox() throws {
@@ -59,6 +59,11 @@ final class AutoFilterTests: XCTestCase {
         XCTAssertTrue(model.disabledValues.isEmpty)
         model.select(index: 0)
         XCTAssertTrue(model.disabledValues.isEmpty)
+    }
+
+    func testCopy() {
+        XCTAssertEqual(BoardCopy.autoFilter, "灰掉不能填的")
+        XCTAssertEqual(BoardCopy.autoFilterHint, "打开后，同一行、同一列、同一个小方块里已经有的数字会变灰，不能点。")
     }
 
     private func makeModel() -> BoardViewModel {
