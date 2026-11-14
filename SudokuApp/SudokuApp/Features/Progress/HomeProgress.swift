@@ -5,6 +5,7 @@ enum ProgressCopy {
     static let intro = "选一个难度，再点一道题开始吧！"
     static let zeroDone = "还没做完过题，从第 1 题开始吧！"
     static let allDone = "这一档全部做完啦，你太厉害了！"
+    // 首页不再显示这一句（和顶部欢迎语重复），只用来表示「说不出上次玩的是哪道」
     static let lastPlayedNone = "还没玩过，先选一道题吧"
     static let random = "随机来一题"
     static let sessionLost = "上次的棋盘没能找回来，我们帮你重新开始这一题吧。"
@@ -24,6 +25,13 @@ enum ProgressCopy {
     }
     static let resume = "继续上一次"
     static let resumeHint = "接着上次的棋盘玩"
+    /// 继续控件的朗读：「上次玩的：困难 · 第 4 题」读成「继续上一次，困难第 4 题」。
+    static func resumeVoiceOver(from lastPlayedText: String) -> String {
+        var name = lastPlayedText
+        let prefix = "上次玩的："
+        if name.hasPrefix(prefix) { name.removeFirst(prefix.count) }
+        return resume + "，" + name.replacing(" · ", with: "")
+    }
     static let inProgress = "玩到一半"
     /// 行尾的朗读后缀，规则同格子：玩到一半优先，其次已经做完。
     static func stateSuffix(isCompleted: Bool, isInProgress: Bool) -> String {
