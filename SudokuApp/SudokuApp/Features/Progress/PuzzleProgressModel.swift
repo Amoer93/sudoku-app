@@ -25,9 +25,9 @@ final class PuzzleProgressModel {
     /// 重新扫一遍存档文件夹；回到首页时调用，因为刚关掉的棋盘可能写了或删了存档。
     /// 传了 knownIDs 就先清掉题已不存在的存档。
     func refreshSessionIndex(keeping knownIDs: Set<PuzzleFingerprint>? = nil) {
-        if let knownIDs { sessions.removeOrphans(keeping: knownIDs) }
-        inProgressIDs = sessions.inProgressIDs()
-        restartableIDs = sessions.restartableIDs()
+        let index = sessions.refreshIndex(keeping: knownIDs)
+        inProgressIDs = index.inProgress
+        restartableIDs = index.restartable
     }
 
     /// 清掉这道题的存档并刷新标记；完成记录不动（重新开始不等于没做过）。

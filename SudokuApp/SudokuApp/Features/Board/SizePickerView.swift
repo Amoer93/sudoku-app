@@ -8,6 +8,8 @@ struct SizePickerView: View {
     // 点击时选一次题，避免视图刷新时反复抽题、求解
     @State private var route: PlayRoute?
     @State private var isOpening = false
+    // 用户题库文件读不出来或损坏时为 false：此时题库只有内置题，不能拿它清存档
+    @State private var allowsOrphanCleanup = true
     // 长按「重新开始这一题」后等确认的那道题
     @State private var restartID: PuzzleFingerprint?
     // 预览里没有进度模型，当作空进度
@@ -26,7 +28,8 @@ struct SizePickerView: View {
 
     /// 刷新存档标记，并顺手清掉题已不存在的存档（只在回到首页时做，不在重绘里做）。
     private func refreshSessions() {
-        progressModel?.refreshSessionIndex(keeping: HomeProgress.knownSessionIDs(bank: library.bank))
+        let knownIDs = allowsOrphanCleanup ? HomeProgress.knownSessionIDs(bank: library.bank) : nil
+        progressModel?.refreshSessionIndex(keeping: knownIDs)
     }
 
     /// 上次玩的题能接着玩时才有值（有存档、不是全解、题还在）。
@@ -160,7 +163,9 @@ struct SizePickerView: View {
 
     /// 重新读文件，让刚导入的题能被看到。
     private func reloadLibrary() {
-        library.reload(PuzzleBankStore().load())
+        let result = PuzzleBankStore().loadResult()
+        allowsOrphanCleanup = result.allowsOrphanCleanup
+        library.reload(result.bank)
     }
 
     private func fixtureSessionID(_ preset: BoardPreset) -> PuzzleFingerprint {

@@ -94,6 +94,37 @@ final class LibraryImportTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(aside)), garbage)
     }
 
+    func testCorruptUserFileKeepsImportedSessionButMissingFileAllowsCleanup() throws {
+        let folder = tempFile.deletingLastPathComponent()
+        let sessions = BoardSessionStore(folderURL: folder.appendingPathComponent("s"))
+        let importedID = PuzzleFingerprint(value: "imported-puzzle")
+        try FileManager.default.createDirectory(at: sessions.folderURL, withIntermediateDirectories: true)
+        let version = BoardSessionState.currentSchemaVersion
+        let header = "{\"schemaVersion\":\(version),\"puzzleID\":\"imported-puzzle\"}"
+        try Data(header.utf8).write(to: sessions.fileURL(for: importedID))
+        // 和首页一样：状态允许才清，用返回的题库算已知 id
+        func refreshLikeHome(_ store: PuzzleBankStore) -> Bool {
+            let result = store.loadResult()
+            let known = result.allowsOrphanCleanup ? HomeProgress.knownSessionIDs(bank: result.bank) : nil
+            _ = sessions.refreshIndex(keeping: known)
+            return result.allowsOrphanCleanup
+        }
+        try Data("not json".utf8).write(to: tempFile)
+        XCTAssertFalse(refreshLikeHome(PuzzleBankStore(fileURL: tempFile)))
+        XCTAssertTrue(sessions.hasFile(for: importedID)) // 坏文件不能连累导入题的存档
+        // 坏文件已挪开，但旁边留有备份：第二次加载也不能清
+        XCTAssertFalse(refreshLikeHome(PuzzleBankStore(fileURL: tempFile)))
+        XCTAssertTrue(sessions.hasFile(for: importedID))
+        // 全新的路径、没有坏文件备份：才算真的没有文件，允许清理
+        let cleanFile = folder.appendingPathComponent("clean/user-entries.json")
+        try FileManager.default.createDirectory(
+            at: cleanFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        XCTAssertTrue(refreshLikeHome(PuzzleBankStore(fileURL: cleanFile)))
+        XCTAssertFalse(sessions.hasFile(for: importedID))
+    }
+
     func testSuccessPersistsOnce() async throws {
         let counter = SaveCounter()
         let notice = await makeImporter(counter: counter).add(nineGrid, rules: .nineByNine)

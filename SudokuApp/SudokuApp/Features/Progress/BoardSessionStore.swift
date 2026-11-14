@@ -121,6 +121,19 @@ final class BoardSessionStore {
         for id in scan().keys where !knownIDs.contains(id) { remove(puzzleID: id) }
     }
 
+    /// 只扫一次：可选先清孤儿，再一起算出「玩到一半」和「能重新开始」两组。
+    func refreshIndex(keeping knownIDs: Set<PuzzleFingerprint>?)
+        -> (inProgress: Set<PuzzleFingerprint>, restartable: Set<PuzzleFingerprint>) {
+        var found = scan()
+        if let knownIDs {
+            for id in found.keys where !knownIDs.contains(id) {
+                remove(puzzleID: id)
+                found[id] = nil
+            }
+        }
+        return (Set(found.filter { $0.value == .inProgress }.keys), Set(found.keys))
+    }
+
     /// 把这道题的存档挪开留底（恢复不出来时用）；新版本的文件不动。
     func moveAside(puzzleID: PuzzleFingerprint) {
         let url = fileURL(for: puzzleID)
