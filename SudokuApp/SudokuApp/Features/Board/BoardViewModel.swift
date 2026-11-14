@@ -30,7 +30,7 @@ final class BoardViewModel {
     /// 提示高亮的格子。用户选别的格、填数、撤销、清空、自动解题后都会清掉。
     var hintedIndex: Int?
     var selectedIndex: Int?
-    /// 自动筛选模式。默认关闭，关闭时键盘行为和以前完全一样。
+    /// 「灰掉不能填的」开关。默认关闭，关闭时键盘行为和以前完全一样。
     var isAutoFilterOn = false
     private(set) var conflicts: Set<Int>
     var solutionCount: Int?

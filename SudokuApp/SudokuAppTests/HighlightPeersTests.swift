@@ -1,7 +1,7 @@
 @testable import SudokuApp
 import XCTest
 
-/// 「高亮行列宫」：同行、同列、同宫下标和开关行为。
+/// 「点亮相关格子」：同行、同列、同宫下标和开关行为。
 @MainActor
 final class HighlightPeersTests: XCTestCase {
     func testNineByNineCenterCellHasTwentyPeers() {

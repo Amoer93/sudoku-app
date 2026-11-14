@@ -1,7 +1,7 @@
 @testable import SudokuApp
 import XCTest
 
-/// 自动筛选：同行、同列、同宫已有的数字要被禁用。
+/// 「灰掉不能填的」：同行、同列、同宫已有的数字要被禁用。
 @MainActor
 final class AutoFilterTests: XCTestCase {
     func testNineByNineRowColumnAndBox() throws {

@@ -80,7 +80,7 @@ extension BoardViewModel {
         }
     }
 
-    /// 自动筛选时要禁用的数字。
+    /// 「灰掉不能填的」打开时要禁用的数字。
     /// 关闭、没选格、选中给定格（整块键盘本来就禁用）时都返回空集合。
     var disabledValues: Set<Int> {
         guard isAutoFilterOn, let selectedIndex, !givens.contains(selectedIndex),
@@ -91,7 +91,7 @@ extension BoardViewModel {
         return PeerValues.used(in: grid, rules: rules, at: cell)
     }
 
-    /// 自动筛选下，选中的空格 1 到 N 全被禁用，说明前面可能填错了。
+    /// 「灰掉不能填的」打开时，选中的空格 1 到 N 全被禁用，说明前面可能填错了。
     var hasNoCandidates: Bool {
         guard isAutoFilterOn, let selectedIndex, !givens.contains(selectedIndex),
               grid.cells.indices.contains(selectedIndex),

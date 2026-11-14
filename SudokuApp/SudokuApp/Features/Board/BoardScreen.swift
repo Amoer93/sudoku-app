@@ -271,7 +271,7 @@ private struct BoardContentView: View {
             .accessibilityHint(BoardCopy.showCandidatesHint)
     }
 
-    /// 自动筛选和高亮行列宫两个开关并排放，小字号。
+    /// 「灰掉不能填的」和「点亮相关格子」两个开关并排放，小字号。
     private var filterToggles: some View {
         HStack(spacing: 16) {
             Toggle(BoardCopy.autoFilter, isOn: $model.isAutoFilterOn)
