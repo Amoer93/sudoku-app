@@ -160,18 +160,20 @@ struct SizePickerView: View {
         }
     }
 
-    /// 小棋盘的一行：开题按钮和继续控件是兄弟，不互相嵌套；长按菜单挂在整行上。
+    /// 小棋盘的一行：开题按钮和继续控件是兄弟，不互相嵌套；两个按钮各挂同一个长按菜单。
     private func smallBoardRow(_ preset: BoardPreset) -> some View {
-        HStack(spacing: 8) {
+        let sessionID = fixtureSessionID(preset)
+        var restart: (() -> Void)?
+        if progress.restartableIDs.contains(sessionID) {
+            restart = { restartID = sessionID }
+        }
+        return HStack(spacing: 8) {
             Button { open(preset) } label: { presetLabel(preset) }
                 .buttonStyle(.plain)
+                .restartContextMenu(action: restart)
             if resumeTarget == .fixture(preset) {
                 ResumeButton(voiceOverLabel: resumeLabel, action: resumeLastPlayed)
-            }
-        }
-        .contextMenu {
-            if progress.restartableIDs.contains(fixtureSessionID(preset)) {
-                Button(ProgressCopy.restartAction) { restartID = fixtureSessionID(preset) }
+                    .restartContextMenu(action: restart)
             }
         }
     }

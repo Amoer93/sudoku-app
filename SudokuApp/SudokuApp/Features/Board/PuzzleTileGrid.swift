@@ -24,6 +24,20 @@ struct ResumeButton: View {
     }
 }
 
+extension View {
+    /// 长按出现「重新开始这一题」；没有动作时不加菜单。
+    @ViewBuilder
+    func restartContextMenu(action: (() -> Void)?) -> some View {
+        if let action {
+            contextMenu {
+                Button(ProgressCopy.restartAction) { action() }
+            }
+        } else {
+            self
+        }
+    }
+}
+
 /// 进度卡片：上次玩的（需要时才有）、进度条、做完几道、累计。
 struct ProgressCardView: View {
     /// 「上次玩的」那一行怎么显示。题已经在这页上时，由格子或小棋盘行负责，这里不重复。
@@ -106,25 +120,31 @@ struct PuzzleTileGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(tiles) { tile in
-                // 两个按钮是兄弟，不互相嵌套；长按菜单挂在外层，按在哪个上面都能出来
+                // 两个按钮是兄弟，不互相嵌套；各挂同一个长按菜单，外层的菜单到不了叠在上面的按钮
+                let restart = restartAction(for: tile)
                 ZStack(alignment: .topLeading) {
                     Button { onSelect(tile) } label: { cell(tile) }
                         .buttonStyle(.plain)
                         .accessibilityLabel(ProgressCopy.tileVoiceOver(
                             number: tile.number, isCompleted: tile.isCompleted, isInProgress: tile.isInProgress
                         ))
+                        .restartContextMenu(action: restart)
                     if let onResume, tile.isLastPlayed, tile.isInProgress {
                         ResumeButton(voiceOverLabel: resumeLabel, symbol: "play.fill", symbolFont: .caption2,
                                      alignment: .topLeading, action: onResume)
-                    }
-                }
-                .contextMenu {
-                    if tile.isRestartable, let onRestart {
-                        Button(ProgressCopy.restartAction) { onRestart(tile) }
+                            .restartContextMenu(action: restart)
                     }
                 }
             }
         }
+    }
+
+    /// 这一格的「重新开始」动作；没有存档就没有。
+    private func restartAction(for tile: HomeProgress.Tile) -> (() -> Void)? {
+        guard tile.isRestartable, let onRestart else {
+            return nil
+        }
+        return { onRestart(tile) }
     }
 
     private func cell(_ tile: HomeProgress.Tile) -> some View {
