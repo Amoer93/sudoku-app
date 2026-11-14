@@ -130,6 +130,11 @@ final class HomeProgressTests: XCTestCase {
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false, isInProgress: true), "第 12 题，玩到一半")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true, isInProgress: true), "第 12 题，玩到一半")
         XCTAssertEqual([ProgressCopy.resume, ProgressCopy.resumeHint], ["继续上一次", "接着上次的棋盘玩"])
+        // 继续控件的朗读：去掉「上次玩的：」和「 · 」，前面加「继续上一次，」
+        let resumeSpoken = ["上次玩的：困难 · 第 4 题", "上次玩的：4×4", "上次玩的：困难"].map {
+            ProgressCopy.resumeVoiceOver(from: $0)
+        }
+        XCTAssertEqual(resumeSpoken, ["继续上一次，困难第 4 题", "继续上一次，4×4", "继续上一次，困难"])
         let restartCopy = [ProgressCopy.restartAction, ProgressCopy.restartMessage]
         XCTAssertEqual(restartCopy, ["重新开始这一题", "这一题现在的进度会被清掉，要重新开始吗？"])
         XCTAssertEqual([ProgressCopy.restartConfirm, ProgressCopy.restartCancel], ["重新开始", "先不了"])
