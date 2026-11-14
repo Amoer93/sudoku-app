@@ -7,8 +7,8 @@ extension BoardViewModel {
         }
     }
 
-    /// 打开「显示候选数」时，空格会带上候选数。
-    /// 打开「高亮行列宫」时，选中格的同行、同列、同宫会带上标记。
+    /// 打开「显示能填的数」时，空格会带上候选数。
+    /// 打开「点亮相关格子」时，选中格的同行、同列、同宫会带上标记。
     func cellStates(showingCandidates: Bool, highlightingPeers: Bool = false) -> [BoardCellState] {
         var states = cellStates
         if highlightingPeers {

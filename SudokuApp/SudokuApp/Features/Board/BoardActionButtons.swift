@@ -15,9 +15,7 @@ struct LayerCapsuleButton: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
-        .controlSize(.small)
+        .buttonStyle(SecondaryButtonStyle())
         .disabled(!isEnabled)
         .accessibilityLabel(title)
         .accessibilityHint(hint)

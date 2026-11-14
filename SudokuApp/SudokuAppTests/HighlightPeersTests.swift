@@ -54,8 +54,8 @@ final class HighlightPeersTests: XCTestCase {
     }
 
     func testCopyAndStorageDefaults() {
-        XCTAssertEqual(BoardCopy.highlightPeers, "高亮行列宫")
-        XCTAssertEqual(BoardCopy.highlightPeersHint, "打开后，选中格子的同行、同列、同宫会变深一点")
+        XCTAssertEqual(BoardCopy.highlightPeers, "点亮相关格子")
+        XCTAssertEqual(BoardCopy.highlightPeersHint, "打开后，和选中格子同一行、同一列、同一个小方块的格子会深一点。")
         XCTAssertEqual(BoardHighlightStyle.storageKey, "highlightPeers")
         XCTAssertTrue(BoardHighlightStyle.defaultEnabled)
         XCTAssertEqual(BoardHighlightStyle.peerOverlay, 0.10)
