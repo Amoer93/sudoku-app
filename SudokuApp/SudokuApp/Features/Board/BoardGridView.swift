@@ -209,7 +209,7 @@ struct BoardGridView: View {
         }
     }
 
-    /// 非题目格带着蒙版（试填）底色。
+    /// 非题目格带着试试层底色。
     private func hasLayerTint(_ cell: BoardCellState) -> Bool {
         return AssumptionLayerStyle.tintColor(forDepth: cell.layerDepth) != nil && !cell.isGiven
     }

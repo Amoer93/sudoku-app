@@ -29,13 +29,14 @@ struct AssumptionLayerStyle: Equatable {
     let name: AssumptionLayerColor
     let opacity: Double
 
-    /// 透明度逐层降低，颜色各不相同；超过色板长度后循环。
+    /// 每层颜色各不相同，数字只略微调透明，保证浅色和深色下都看得清（对比度不低于 3:1）；
+    /// 超过色板长度后循环。
     private static let palette: [AssumptionLayerStyle] = [
-        AssumptionLayerStyle(name: .ink, opacity: 0.85),
-        AssumptionLayerStyle(name: .clay, opacity: 0.7),
-        AssumptionLayerStyle(name: .plum, opacity: 0.55),
-        AssumptionLayerStyle(name: .moss, opacity: 0.85),
-        AssumptionLayerStyle(name: .berry, opacity: 0.7)
+        AssumptionLayerStyle(name: .ink, opacity: 0.9),
+        AssumptionLayerStyle(name: .clay, opacity: 0.85),
+        AssumptionLayerStyle(name: .plum, opacity: 0.8),
+        AssumptionLayerStyle(name: .moss, opacity: 0.9),
+        AssumptionLayerStyle(name: .berry, opacity: 0.85)
     ]
 
     /// 第 `depth` 层的样式。0 层（确定数字）返回 nil，沿用原来的颜色。

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 撤销、重做、清空。图标配短标题，小屏上也能点到。
+/// 棋盘上的「试一试」「不试了」。点按区域要够大才好点。
 struct LayerCapsuleButton: View {
     let title: String
     let systemImage: String
@@ -14,6 +14,11 @@ struct LayerCapsuleButton: View {
                 .font(.caption)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(minHeight: 44)
+                // 整块 44pt 高的区域都能点到，不只是文字
+                .contentShape(Rectangle())
         }
         .buttonStyle(SecondaryButtonStyle())
         .disabled(!isEnabled)
@@ -22,6 +27,7 @@ struct LayerCapsuleButton: View {
     }
 }
 
+/// 撤销、重做、清空。图标配短标题，小屏上也能点到。
 struct BoardActionButton: View {
     let title: String
     let systemImage: String

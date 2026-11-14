@@ -61,6 +61,11 @@ final class AutoFilterTests: XCTestCase {
         XCTAssertTrue(model.disabledValues.isEmpty)
     }
 
+    func testCopy() {
+        XCTAssertEqual(BoardCopy.autoFilter, "灰掉不能填的")
+        XCTAssertEqual(BoardCopy.autoFilterHint, "打开后，同一行、同一列、同一个小方块里已经有的数字会变灰，不能点。")
+    }
+
     private func makeModel() -> BoardViewModel {
         let puzzle = FixtureLibrary.puzzle(for: .four)
         return BoardViewModel(title: "测试", puzzle: puzzle, engine: FixtureBoardEngine())
