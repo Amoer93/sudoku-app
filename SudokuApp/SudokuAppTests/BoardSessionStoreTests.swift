@@ -146,6 +146,69 @@ final class BoardSessionStoreTests: XCTestCase {
         try FileManager.default.moveItem(at: store.fileURL(for: puzzleID), to: store.fileURL(for: other))
         XCTAssertEqual(store.summary(for: other), .none)
         XCTAssertTrue(store.inProgressIDs().isEmpty)
+        // 文件头缺 usedAutoSolve：算玩到一半；缺 puzzleID：什么都不算，也不进索引
+        let bare = PuzzleFingerprint(value: "bare")
+        try write(Data("{\"schemaVersion\":1,\"puzzleID\":\"bare\"}".utf8), to: store.fileURL(for: bare))
+        try write(Data("{\"schemaVersion\":1,\"usedAutoSolve\":false}".utf8), to: store.fileURL(for: puzzleID))
+        XCTAssertEqual(store.summary(for: bare), .inProgress)
+        XCTAssertEqual(store.summary(for: puzzleID), .none)
+        XCTAssertEqual(store.inProgressIDs(), [bare])
+    }
+
+    func testMismatchedSessionIsMovedAsideAndStartShowsNotice() throws {
+        let progress = makeProgress()
+        let records = Data("{\"schemaVersion\":1}".utf8)
+        try write(records, to: recordsURL)
+        // 5×5 的存档冒充 4×4 这一题：解得开，但和这道题对不上
+        let five = FixtureLibrary.puzzle(for: .five)
+        let model = BoardViewModel(title: "5×5", puzzle: five, engine: FixtureBoardEngine())
+        let saveTime = Date(timeIntervalSince1970: 1)
+        let mismatched = try XCTUnwrap(model.makeSessionState(puzzleID: puzzleID, savedAt: saveTime))
+        progress.sessions.save(mismatched)
+        let launch = start(progress)
+        XCTAssertEqual(launch.lostNotice?.text, ProgressCopy.sessionLost)
+        XCTAssertEqual(launch.model.grid, puzzle.givens)
+        XCTAssertFalse(progress.sessions.hasFile(for: puzzleID))
+        XCTAssertEqual(asideFileCount(), 1)
+        XCTAssertEqual(try Data(contentsOf: recordsURL), records)
+        XCTAssertNil(start(progress).lostNotice) // 挪开之后不会再提示
+        // moveAside 也一样挪开，新版本的文件不动
+        progress.sessions.save(try makeState(filling: 1))
+        progress.sessions.moveAside(puzzleID: puzzleID)
+        XCTAssertFalse(progress.sessions.hasFile(for: puzzleID))
+        XCTAssertEqual(asideFileCount(), 2)
+        let newer = Data("{\"schemaVersion\":99}".utf8)
+        try write(newer, to: sessionURL)
+        progress.sessions.moveAside(puzzleID: puzzleID)
+        XCTAssertEqual(try Data(contentsOf: sessionURL), newer)
+    }
+
+    func testRemoveOrphansAndRestartKeepRecordsAndNewerFiles() throws {
+        let progress = makeProgress()
+        let store = progress.sessions
+        let ids = ["kept", "orphan", "solved", "newer"].map { PuzzleFingerprint(value: $0) }
+        var state = try makeState(filling: 1)
+        for id in ids.prefix(3) {
+            state.puzzleID = id
+            state.usedAutoSolve = id == ids[2] // 全解留下的存档也要能清
+            store.save(state)
+        }
+        let newer = Data("{\"schemaVersion\":99,\"puzzleID\":\"newer\"}".utf8)
+        try write(newer, to: store.fileURL(for: ids[3]))
+        progress.markCompleted(id: ids[0])
+        let records = try Data(contentsOf: recordsURL)
+        progress.refreshSessionIndex(keeping: [ids[0], ids[2]])
+        XCTAssertFalse(store.hasFile(for: ids[1])) // 题没了：删
+        XCTAssertEqual(try Data(contentsOf: store.fileURL(for: ids[3])), newer) // 新版本：不动
+        XCTAssertEqual(progress.inProgressIDs, [ids[0]])
+        XCTAssertEqual(progress.restartableIDs, [ids[0], ids[2]])
+        progress.restartPuzzle(id: ids[0])
+        progress.restartPuzzle(id: ids[2])
+        XCTAssertTrue(progress.inProgressIDs.isEmpty)
+        XCTAssertTrue(progress.restartableIDs.isEmpty)
+        XCTAssertTrue(progress.isCompleted(ids[0])) // 重新开始不等于没做过
+        XCTAssertEqual(try Data(contentsOf: recordsURL), records)
+        XCTAssertEqual(try Data(contentsOf: store.fileURL(for: ids[3])), newer)
     }
 
     private func makeStore(maxFileSize: Int = BoardSessionStore.defaultMaxFileSize) -> BoardSessionStore {

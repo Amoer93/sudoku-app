@@ -90,6 +90,7 @@ enum BoardSessionLauncher {
                 model = restored
                 backfillCompletion(of: model, id: identity.id, progress: progress)
             } else {
+                sessions.moveAside(puzzleID: identity.id) // 解出来但盘面用不了：挪开，下次不再提示
                 lostNotice = ImportNotice(text: ProgressCopy.sessionLost, existingEntry: nil)
             }
         case .unreadable:

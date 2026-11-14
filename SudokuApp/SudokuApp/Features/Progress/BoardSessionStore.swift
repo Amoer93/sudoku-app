@@ -96,7 +96,10 @@ final class BoardSessionStore {
         }
         // 文件里记的指纹要和文件名对得上
         guard state.puzzleID == puzzleID,
-              let valid = state.validated(against: puzzle, puzzleID: puzzleID) else { return .unreadable }
+              let valid = state.validated(against: puzzle, puzzleID: puzzleID) else {
+            moveCorruptFileAside(url, id: puzzleID) // 读得出但和这道题对不上，也挪开，免得每次都提示
+            return .unreadable
+        }
         return .loaded(valid)
     }
 
@@ -107,15 +110,35 @@ final class BoardSessionStore {
 
     /// 扫一遍文件夹，返回所有「玩到一半」的题；每个文件只读文件头。
     func inProgressIDs() -> Set<PuzzleFingerprint> {
+        Set(scan().filter { $0.value == .inProgress }.keys)
+    }
+
+    /// 能「重新开始」的题：玩到一半的，加上用过全解留下存档的。
+    func restartableIDs() -> Set<PuzzleFingerprint> { Set(scan().keys) }
+
+    /// 删掉题已不存在的存档（只看当前版本、读得出指纹的）；新版本和 .corrupt- 文件不动。
+    func removeOrphans(keeping knownIDs: Set<PuzzleFingerprint>) {
+        for id in scan().keys where !knownIDs.contains(id) { remove(puzzleID: id) }
+    }
+
+    /// 把这道题的存档挪开留底（恢复不出来时用）；新版本的文件不动。
+    func moveAside(puzzleID: PuzzleFingerprint) {
+        let url = fileURL(for: puzzleID)
+        if hasFile(for: puzzleID), !hasNewerSchema(at: url) { moveCorruptFileAside(url, id: puzzleID) }
+    }
+
+    /// 文件夹里当前版本的存档：只含「玩到一半」和「全解」两种。
+    private func scan() -> [PuzzleFingerprint: BoardSessionSummary] {
         let urls = (try? FileManager.default.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil)) ?? []
-        var ids = Set<PuzzleFingerprint>()
+        var found: [PuzzleFingerprint: BoardSessionSummary] = [:]
         for url in urls where url.pathExtension == "json" {
             // 文件名要和里面记的指纹对得上，改名留下的坏文件会被挡掉
             guard let header = header(at: url), let id = header.puzzleID,
                   fileURL(for: id).lastPathComponent == url.lastPathComponent else { continue }
-            if summary(of: header, expecting: id) == .inProgress { ids.insert(id) }
+            let kind = summary(of: header, expecting: id)
+            if kind == .inProgress || kind == .autoSolved { found[id] = kind }
         }
-        return ids
+        return found
     }
 
     private func summary(of header: SchemaHeader?, expecting id: PuzzleFingerprint) -> BoardSessionSummary {

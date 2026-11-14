@@ -17,12 +17,26 @@ final class PuzzleProgressModel {
     /// 有「玩到一半」存档的题（不含全解的）。只在 refreshSessionIndex 时更新，棋盘里存盘不会实时改它。
     private(set) var inProgressIDs: Set<PuzzleFingerprint> = []
 
+    /// 能「重新开始这一题」的题（玩到一半 + 全解留下的）。同样只在刷新时更新。
+    private(set) var restartableIDs: Set<PuzzleFingerprint> = []
+
     var lastPlayed: LastPlayedRecord? { records.lastPlayed }
 
     /// 重新扫一遍存档文件夹；回到首页时调用，因为刚关掉的棋盘可能写了或删了存档。
-    func refreshSessionIndex() {
+    /// 传了 knownIDs 就先清掉题已不存在的存档。
+    func refreshSessionIndex(keeping knownIDs: Set<PuzzleFingerprint>? = nil) {
+        if let knownIDs { sessions.removeOrphans(keeping: knownIDs) }
         inProgressIDs = sessions.inProgressIDs()
+        restartableIDs = sessions.restartableIDs()
     }
+
+    /// 清掉这道题的存档并刷新标记；完成记录不动（重新开始不等于没做过）。
+    func restartPuzzle(id: PuzzleFingerprint) {
+        sessions.remove(puzzleID: id)
+        refreshSessionIndex()
+    }
+
+    func isCompleted(_ id: PuzzleFingerprint) -> Bool { records.completed.contains { $0.id == id } }
 
     init(store: PuzzleProgressStore = PuzzleProgressStore(), sessions: BoardSessionStore = BoardSessionStore()) {
         self.store = store
