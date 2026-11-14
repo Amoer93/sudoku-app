@@ -18,9 +18,19 @@ enum ProgressCopy {
         guard let number else { return "上次玩的：" + LibraryCopy.title(difficulty) }
         return "上次玩的：\(LibraryCopy.title(difficulty)) · 第 \(number) 题"
     }
-    static func tileVoiceOver(number: Int, isCompleted: Bool) -> String {
-        "第 \(number) 题，\(isCompleted ? "已经做完" : "新题")"
+    static let resume = "继续上一次"
+    static let resumeHint = "接着上次的棋盘玩"
+    static let inProgress = "玩到一半"
+    /// 玩到一半优先：玩家点进去会接着那一局。
+    static func tileVoiceOver(number: Int, isCompleted: Bool, isInProgress: Bool = false) -> String {
+        "第 \(number) 题，" + (isInProgress ? inProgress : (isCompleted ? "已经做完" : "新题"))
     }
+}
+
+/// 「继续上一次」要打开的题：小棋盘，或还在题库里的内置题（连同它所在的难度）。
+enum ResumeTarget: Equatable {
+    case fixture(BoardPreset)
+    case bank(PuzzleBankEntry, Difficulty)
 }
 
 extension PuzzleBankProviding {
@@ -37,6 +47,7 @@ struct HomeProgress {
         let entry: PuzzleBankEntry
         let isCompleted: Bool
         let isLastPlayed: Bool
+        var isInProgress = false // 有没做完、也没用过全解的存档
         var id: PuzzleFingerprint { entry.id }
     }
 
@@ -45,11 +56,17 @@ struct HomeProgress {
 
     let entries: [PuzzleBankEntry]
     let records: PuzzleProgressRecords
+    let inProgressIDs: Set<PuzzleFingerprint>
     private let completedIDs: Set<PuzzleFingerprint>
 
-    init(entries: [PuzzleBankEntry], records: PuzzleProgressRecords = PuzzleProgressRecords()) {
+    init(
+        entries: [PuzzleBankEntry],
+        records: PuzzleProgressRecords = PuzzleProgressRecords(),
+        inProgressIDs: Set<PuzzleFingerprint> = []
+    ) {
         self.entries = entries
         self.records = records
+        self.inProgressIDs = inProgressIDs
         completedIDs = Set(records.completed.map(\.id))
     }
 
@@ -62,11 +79,23 @@ struct HomeProgress {
     var tiles: [Tile] {
         entries.enumerated().map { offset, entry in
             Tile(number: offset + 1, entry: entry, isCompleted: completedIDs.contains(entry.id),
-                 isLastPlayed: records.lastPlayed?.id == entry.id)
+                 isLastPlayed: records.lastPlayed?.id == entry.id, isInProgress: inProgressIDs.contains(entry.id))
         }
     }
 
     func isCompleted(_ id: PuzzleFingerprint) -> Bool { completedIDs.contains(id) }
+
+    /// 上次玩的题要有玩到一半的存档，并且打得开才能继续；否则返回 nil（按钮隐藏）。
+    static func resumeTarget(
+        lastPlayed: LastPlayedRecord?, inProgressIDs: Set<PuzzleFingerprint>, bank: any PuzzleBankProviding
+    ) -> ResumeTarget? {
+        guard let id = lastPlayed?.id, inProgressIDs.contains(id) else { return nil }
+        if id == fixture4 { return .fixture(.four) }
+        if id == fixture5 { return .fixture(.five) }
+        // 不限难度地找：题可能被改过档，以题库里现在的档位为准
+        let entry = bank.entries(difficulty: nil, source: .builtin, sort: .difficultyAscending).first { $0.id == id }
+        return entry.map { ResumeTarget.bank($0, $0.difficulty) }
+    }
 
     var summaryText: String {
         if total == 0 { return ProgressCopy.emptyDifficulty }

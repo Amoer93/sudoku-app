@@ -13,7 +13,17 @@ struct SizePickerView: View {
 
     private var progress: HomeProgress {
         HomeProgress(entries: library.builtinEntries(difficulty: difficulty),
-                     records: progressModel?.records ?? PuzzleProgressRecords())
+                     records: progressModel?.records ?? PuzzleProgressRecords(),
+                     inProgressIDs: progressModel?.inProgressIDs ?? [])
+    }
+
+    /// 上次玩的题能接着玩时才有值（有存档、不是全解、题还在）。
+    private var resumeTarget: ResumeTarget? {
+        HomeProgress.resumeTarget(
+            lastPlayed: progressModel?.lastPlayed,
+            inProgressIDs: progressModel?.inProgressIDs ?? [],
+            bank: library.bank
+        )
     }
 
     var body: some View {
@@ -54,7 +64,10 @@ struct SizePickerView: View {
                 }
             }
             .navigationTitle(HomeCopy.title)
-            .onAppear(perform: reloadLibrary)
+            .onAppear {
+                reloadLibrary()
+                progressModel?.refreshSessionIndex() // 刚关掉的棋盘可能写了或删了存档
+            }
             .navigationDestination(item: $route) { route in
                 // 每次点击一个新 id：换题时重建 BoardScreen，模型跟着刷新
                 BoardScreen(preset: route.preset, puzzle: route.puzzle, bankEntry: route.entry).id(route.id)
@@ -67,7 +80,8 @@ struct SizePickerView: View {
         let current = progress
         ProgressCardView(
             progress: current,
-            lastPlayedText: HomeProgress.lastPlayedText(progressModel?.lastPlayed, bank: library.bank)
+            lastPlayedText: HomeProgress.lastPlayedText(progressModel?.lastPlayed, bank: library.bank),
+            onResume: resumeTarget.map { _ in resumeLastPlayed }
         )
         if current.total == 0 {
             Text(ProgressCopy.emptyDifficulty)
@@ -96,6 +110,19 @@ struct SizePickerView: View {
         }
     }
 
+    /// 回到上次玩的题；题库题会先把难度切过去，进棋盘时由存档恢复。
+    private func resumeLastPlayed() {
+        switch resumeTarget {
+        case .fixture(let preset):
+            open(preset)
+        case .bank(let entry, let level):
+            difficulty = level
+            open(.nine, entry: entry)
+        case nil:
+            break
+        }
+    }
+
     /// 在所选难度的内置题里随机来一题；没有题就用内置示例题。
     private func openRandom() {
         var generator = SystemRandomNumberGenerator()
@@ -118,13 +145,19 @@ struct SizePickerView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if progress.inProgressIDs.contains(fixtureID) {
+                Text(ProgressCopy.inProgress).font(.caption).foregroundStyle(AppTheme.pineGreen)
+            }
             if progress.isCompleted(fixtureID) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.pineGreen)
             }
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(preset.title)，\(preset.detail)" + (progress.isCompleted(fixtureID) ? "，已经做完" : ""))
+        .accessibilityLabel(
+            "\(preset.title)，\(preset.detail)" + (progress.isCompleted(fixtureID) ? "，已经做完" : "")
+                + (progress.inProgressIDs.contains(fixtureID) ? "，" + ProgressCopy.inProgress : "")
+        )
     }
 }
 

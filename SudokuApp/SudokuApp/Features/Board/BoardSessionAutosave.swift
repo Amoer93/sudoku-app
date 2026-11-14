@@ -82,15 +82,20 @@ enum BoardSessionLauncher {
         guard let identity, let progress else { return (model, nil, nil) }
         let sessions = progress.sessions
         var lostNotice: ImportNotice?
-        let hadFile = sessions.hasFile(for: identity.id) // load 会把坏文件挪走，所以要先记下
-        if let session = sessions.load(puzzleID: identity.id, puzzle: puzzle),
-           let restored = BoardViewModel.restored(
-               title: title, puzzle: puzzle, session: session, puzzleID: identity.id, engine: engine
-           ) {
-            model = restored
-            backfillCompletion(of: model, id: identity.id, progress: progress)
-        } else if hadFile {
+        switch sessions.loadResult(puzzleID: identity.id, puzzle: puzzle) {
+        case .loaded(let session):
+            if let restored = BoardViewModel.restored(
+                title: title, puzzle: puzzle, session: session, puzzleID: identity.id, engine: engine
+            ) {
+                model = restored
+                backfillCompletion(of: model, id: identity.id, progress: progress)
+            } else {
+                lostNotice = ImportNotice(text: ProgressCopy.sessionLost, existingEntry: nil)
+            }
+        case .unreadable:
             lostNotice = ImportNotice(text: ProgressCopy.sessionLost, existingEntry: nil)
+        case .none, .newerVersion:
+            break // 没存过，或存档来自更新版本：静默新开一局，文件不动
         }
         return (model, BoardSessionAutosave(store: sessions, puzzleID: identity.id, model: model), lostNotice)
     }
@@ -114,6 +119,7 @@ private struct BoardAutosaveModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onChange(of: model.sessionToken) { autosave?.noteChange() }
+            // App 切到后台或不在前台时立刻写盘，不能只等 onDisappear
             .onChange(of: scenePhase) { _, phase in if phase != .active { autosave?.flush() } }
             .onDisappear { autosave?.flush() }
     }

@@ -95,6 +95,14 @@ final class BoardSessionStoreTests: XCTestCase {
         let lost = start(progress)
         XCTAssertEqual(lost.lostNotice?.text, ProgressCopy.sessionLost)
         XCTAssertEqual(lost.model.grid, puzzle.givens)
+        // 新版本的存档：不提示、新开一局，文件原样留着（没改名、没覆盖）
+        let newer = Data("{\"schemaVersion\":99}".utf8)
+        try write(newer, to: sessionURL)
+        let fresh = start(progress)
+        XCTAssertNil(fresh.lostNotice)
+        XCTAssertEqual(fresh.model.grid, puzzle.givens)
+        XCTAssertEqual(try Data(contentsOf: sessionURL), newer)
+        XCTAssertEqual(progress.sessions.loadResult(puzzleID: puzzleID, puzzle: puzzle), .newerVersion)
         // 清掉上面留下的坏文件，免得影响下面的存档检查
         try? FileManager.default.removeItem(at: folder)
         progress = makeProgress()
@@ -110,6 +118,34 @@ final class BoardSessionStoreTests: XCTestCase {
         autosave.noteChange()
         autosave.flush()
         XCTAssertFalse(progress.sessions.hasFile(for: puzzleID))
+    }
+
+    func testSummaryOnlyCountsUnfinishedNonAutoSolveSessions() throws {
+        let store = makeStore()
+        let other = PuzzleFingerprint(value: "fixture-5")
+        let third = PuzzleFingerprint(value: "solved")
+        XCTAssertEqual(store.summary(for: puzzleID), .none) // 没有文件
+        XCTAssertTrue(store.inProgressIDs().isEmpty)
+        var state = try makeState(filling: 1)
+        store.save(state)
+        state.puzzleID = other
+        store.save(state)
+        state.puzzleID = third
+        state.usedAutoSolve = true
+        store.save(state)
+        let summaries = [puzzleID, other, third].map { store.summary(for: $0) }
+        XCTAssertEqual(summaries, [.inProgress, .inProgress, .autoSolved])
+        XCTAssertEqual(store.inProgressIDs(), [puzzleID, other])
+        try write(Data("not json".utf8), to: store.fileURL(for: other))
+        try write(Data("{\"schemaVersion\":99}".utf8), to: store.fileURL(for: third))
+        XCTAssertEqual(store.summary(for: other), .none) // 读不出来
+        XCTAssertEqual(store.summary(for: third), .newerVersion)
+        XCTAssertEqual(store.inProgressIDs(), [puzzleID])
+        // 文件名和里面的指纹对不上：不算
+        try FileManager.default.removeItem(at: store.fileURL(for: other))
+        try FileManager.default.moveItem(at: store.fileURL(for: puzzleID), to: store.fileURL(for: other))
+        XCTAssertEqual(store.summary(for: other), .none)
+        XCTAssertTrue(store.inProgressIDs().isEmpty)
     }
 
     private func makeStore(maxFileSize: Int = BoardSessionStore.defaultMaxFileSize) -> BoardSessionStore {

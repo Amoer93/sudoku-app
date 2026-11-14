@@ -1,10 +1,36 @@
 import Foundation
 import SudokuEngine
 
+/// 读存档的结果：没存过、读不出来、来自更新版本、读到了。
+enum BoardSessionLoadResult: Equatable {
+    case none, unreadable, newerVersion
+    case loaded(BoardSessionState)
+}
+
+/// 首页用的存档概况：只看文件头，不解码整盘。只有 inProgress 算「玩到一半」。
+enum BoardSessionSummary: Equatable {
+    case none, newerVersion, autoSolved, inProgress
+}
+
 /// 读写进行中棋盘的存档，一道题一个文件。磁盘错误都不外抛，也绝不碰 records.json。
 final class BoardSessionStore {
     static let defaultMaxFileSize = 1_000_000
-    private struct SchemaHeader: Decodable { let schemaVersion: Int }
+
+    /// 文件头：只取版本、全解标记和指纹；后两项读不出来就当没有。
+    private struct SchemaHeader: Decodable {
+        let schemaVersion: Int
+        let usedAutoSolve: Bool?
+        let puzzleID: PuzzleFingerprint?
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: Keys.self)
+            schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+            usedAutoSolve = try? container.decode(Bool.self, forKey: .usedAutoSolve)
+            puzzleID = try? container.decode(PuzzleFingerprint.self, forKey: .puzzleID)
+        }
+
+        private enum Keys: String, CodingKey { case schemaVersion, usedAutoSolve, puzzleID }
+    }
 
     let folderURL: URL
     private let maxFileSize: Int
@@ -50,21 +76,54 @@ final class BoardSessionStore {
         }
     }
 
-    /// 读出并校验，不对就返回 nil。坏文件改名留着，新版本的文件原样不动。
+    /// 读出并校验，不对就返回 nil。只是 loadResult 的简写。
     func load(puzzleID: PuzzleFingerprint, puzzle: SamplePuzzle) -> BoardSessionState? {
-        guard hasFile(for: puzzleID) else { return nil }
+        if case .loaded(let state) = loadResult(puzzleID: puzzleID, puzzle: puzzle) { return state }
+        return nil
+    }
+
+    /// 读出并校验。坏文件改名留着；新版本的文件原样不动，也不算坏。
+    func loadResult(puzzleID: PuzzleFingerprint, puzzle: SamplePuzzle) -> BoardSessionLoadResult {
+        guard hasFile(for: puzzleID) else { return .none }
         let url = fileURL(for: puzzleID)
         // 先看版本号再解码：新版本的文件解不开，也不能当坏文件改名
-        let version = storedVersion(at: url)
-        if let version, version > BoardSessionState.currentSchemaVersion { return nil }
+        let version = header(at: url)?.schemaVersion
+        if let version, version > BoardSessionState.currentSchemaVersion { return .newerVersion }
         guard version != nil, let data = try? Data(contentsOf: url),
               let state = BoardSessionState.decode(from: data) else {
             moveCorruptFileAside(url, id: puzzleID)
-            return nil
+            return .unreadable
         }
         // 文件里记的指纹要和文件名对得上
-        guard state.puzzleID == puzzleID else { return nil }
-        return state.validated(against: puzzle, puzzleID: puzzleID)
+        guard state.puzzleID == puzzleID,
+              let valid = state.validated(against: puzzle, puzzleID: puzzleID) else { return .unreadable }
+        return .loaded(valid)
+    }
+
+    /// 只看文件头的概况，首页用，不解码整盘。
+    func summary(for id: PuzzleFingerprint) -> BoardSessionSummary {
+        summary(of: header(at: fileURL(for: id)), expecting: id)
+    }
+
+    /// 扫一遍文件夹，返回所有「玩到一半」的题；每个文件只读文件头。
+    func inProgressIDs() -> Set<PuzzleFingerprint> {
+        let urls = (try? FileManager.default.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil)) ?? []
+        var ids = Set<PuzzleFingerprint>()
+        for url in urls where url.pathExtension == "json" {
+            // 文件名要和里面记的指纹对得上，改名留下的坏文件会被挡掉
+            guard let header = header(at: url), let id = header.puzzleID,
+                  fileURL(for: id).lastPathComponent == url.lastPathComponent else { continue }
+            if summary(of: header, expecting: id) == .inProgress { ids.insert(id) }
+        }
+        return ids
+    }
+
+    private func summary(of header: SchemaHeader?, expecting id: PuzzleFingerprint) -> BoardSessionSummary {
+        guard let header else { return .none }
+        if header.schemaVersion > BoardSessionState.currentSchemaVersion { return .newerVersion }
+        let isCurrent = header.schemaVersion == BoardSessionState.currentSchemaVersion
+        guard isCurrent, header.puzzleID == id else { return .none }
+        return header.usedAutoSolve == true ? .autoSolved : .inProgress
     }
 
     /// 只删这道题的存档；新版本的文件不删。
@@ -73,15 +132,15 @@ final class BoardSessionStore {
         if !hasNewerSchema(at: url) { try? FileManager.default.removeItem(at: url) }
     }
 
-    /// 文件里的版本号；太大、读不出来、不是 JSON 都返回 nil。
-    private func storedVersion(at url: URL) -> Int? {
+    /// 文件头；太大、读不出来、不是 JSON 都返回 nil。
+    private func header(at url: URL) -> SchemaHeader? {
         let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize
         guard let size, size <= maxFileSize, let data = try? Data(contentsOf: url) else { return nil }
-        return try? BoardSessionState.makeDecoder().decode(SchemaHeader.self, from: data).schemaVersion
+        return try? BoardSessionState.makeDecoder().decode(SchemaHeader.self, from: data)
     }
 
     private func hasNewerSchema(at url: URL) -> Bool {
-        (storedVersion(at: url) ?? 0) > BoardSessionState.currentSchemaVersion
+        (header(at: url)?.schemaVersion ?? 0) > BoardSessionState.currentSchemaVersion
     }
 
     private func moveCorruptFileAside(_ url: URL, id: PuzzleFingerprint) {

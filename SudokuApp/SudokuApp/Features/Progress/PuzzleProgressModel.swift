@@ -14,7 +14,15 @@ final class PuzzleProgressModel {
     /// 进行中棋盘的存档；有自己的版本规则，不受 isReadOnly 影响。
     @ObservationIgnored let sessions: BoardSessionStore
 
+    /// 有「玩到一半」存档的题（不含全解的）。只在 refreshSessionIndex 时更新，棋盘里存盘不会实时改它。
+    private(set) var inProgressIDs: Set<PuzzleFingerprint> = []
+
     var lastPlayed: LastPlayedRecord? { records.lastPlayed }
+
+    /// 重新扫一遍存档文件夹；回到首页时调用，因为刚关掉的棋盘可能写了或删了存档。
+    func refreshSessionIndex() {
+        inProgressIDs = sessions.inProgressIDs()
+    }
 
     init(store: PuzzleProgressStore = PuzzleProgressStore(), sessions: BoardSessionStore = BoardSessionStore()) {
         self.store = store
