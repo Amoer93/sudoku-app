@@ -30,7 +30,7 @@ final class BoardViewModel {
     /// 提示高亮的格子。用户选别的格、填数、撤销、清空、自动解题后都会清掉。
     var hintedIndex: Int?
     var selectedIndex: Int?
-    /// 自动筛选模式。默认关闭，关闭时键盘行为和以前完全一样。
+    /// 「灰掉不能填的」开关。默认关闭，关闭时键盘行为和以前完全一样。
     var isAutoFilterOn = false
     private(set) var conflicts: Set<Int>
     var solutionCount: Int?
@@ -55,7 +55,7 @@ final class BoardViewModel {
     }
 
     /// 请求提示：选中并高亮确定格，只给位置，绝不填数字。
-    /// 找不到确定格（含盘面已有冲突）时显示「当前无唯一解，可点「试一试」尝试。」。
+    /// 找不到确定格（含盘面已有冲突）时显示「现在还不能确定，可以点「试一试」。」。
     func showHint() {
         guard !isSolving else {
             return

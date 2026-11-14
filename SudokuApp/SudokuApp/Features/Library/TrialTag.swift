@@ -1,16 +1,16 @@
 import SudokuEngine
 import SwiftUI
 
-/// 「需试错」标签的文案。
+/// 「先猜一猜」标签的文案。
 enum TrialTagCopy {
-    static let text = "需试错"
+    static let text = "先猜一猜"
     static let explanation = "这道题可能要先猜一个数，再检查对不对。"
-    static let accessibilityLabel = "需试错：" + explanation
+    static let accessibilityLabel = "先猜一猜：" + explanation
     static let dismissButton = "知道了"
 
     /// 难度选择器的副标题。
     /// 专家档里有一部分题需要试错；
-    /// 单题「需试错」标签仍然只看 hardestTechnique，用来标明是哪几道。
+    /// 单题「先猜一猜」标签仍然只看 hardestTechnique，用来标明是哪几道。
     static func pickerSubtitle(for difficulty: Difficulty) -> String? {
         if difficulty == .expert {
             return "有的题要试一试"
@@ -83,10 +83,10 @@ struct TrialTagView: View {
         Button { isExplanationShown = true } label: {
             Text(TrialTagCopy.text)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(AppTheme.pineGreen)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(Color.orange.opacity(0.15), in: Capsule())
+                .background(AppTheme.pineFill, in: Capsule())
                 .contentShape(Capsule()) // 整个胶囊都能点
         }
         .buttonStyle(.borderless)

@@ -43,7 +43,7 @@ final class P2PolishTests: XCTestCase {
         XCTAssertTrue(model.conflicts.isEmpty)
         model.select(index: 0)
 
-        XCTAssertFalse(model.hasNoCandidates, "自动筛选关闭时不算")
+        XCTAssertFalse(model.hasNoCandidates, "「灰掉不能填的」关闭时不算")
 
         model.isAutoFilterOn = true
         XCTAssertTrue(model.hasNoCandidates)

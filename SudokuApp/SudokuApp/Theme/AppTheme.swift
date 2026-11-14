@@ -29,6 +29,14 @@ enum AppTheme {
     static let conflictBackground = dynamic(light: 0xF8D4D1, dark: 0x4A2220)
     static let hintGoldText = dynamic(light: 0x7A6410, dark: 0xE8C85A)
     static let hintGoldBackground = dynamic(light: 0xF7E9B5, dark: 0x3D3414)
+    /// 建议先试试的格子底色（淡紫），和提示金色分开。
+    static let assumptionHintBackground = dynamic(light: 0xDDD7F0, dark: 0x322C4A)
+    /// 试试层的数字颜色，每层一种，和冲突红、提示金、松绿都拉开。
+    static let layerInk = dynamic(light: 0x2F4A73, dark: 0x8FB0DC)
+    static let layerClay = dynamic(light: 0x8E4E2E, dark: 0xE3A57A)
+    static let layerPlum = dynamic(light: 0x5C3D8F, dark: 0xC4A3EC)
+    static let layerMoss = dynamic(light: 0x4F6420, dark: 0xBFD16A)
+    static let layerBerry = dynamic(light: 0x8A3358, dark: 0xE89AB8)
     /// 主按钮上的字色。
     static let onButtonText = dynamic(light: 0xF7FBFC, dark: 0x12181B)
 

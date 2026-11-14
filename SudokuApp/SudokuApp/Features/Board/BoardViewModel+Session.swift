@@ -30,7 +30,7 @@ extension BoardViewModel {
     }
 
     /// 先校验再恢复：存档对不上这道题就返回 nil。
-    /// 选中格、提示、提示文案、自动筛选这些临时状态不恢复，保持初始值。
+    /// 选中格、提示、提示文案、「灰掉不能填的」这些临时状态不恢复，保持初始值。
     /// 恢复时仍不调用 onPlayerCompleted / updatePlayerCompletion()；
     /// 「做完」补记由 BoardSessionLauncher.backfillCompletion 在恢复成功后做。
     static func restored(

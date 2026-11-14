@@ -42,7 +42,7 @@ extension BoardViewModel {
         return grid != top.snapshot.grid || cellDepths != top.snapshot.depths
     }
 
-    /// 当前高亮的格子是否是「建议尝试格」（而不是确定格）。
+    /// 当前高亮的格子是否是「建议先试试的格子」（而不是确定格）。
     var isHintAnAssumption: Bool {
         guard hintedIndex != nil, case .assumption = notice else {
             return false
