@@ -6,6 +6,8 @@ struct LibraryView: View {
     @Bindable var model: LibraryViewModel
     // 点击时才求解，结果放这里触发跳转
     @State private var route: PlayRoute?
+    // 预览里没有进度模型，就不显示对勾
+    @Environment(PuzzleProgressModel.self) private var progressModel: PuzzleProgressModel?
 
     var body: some View {
         let entries = model.visibleEntries
@@ -55,13 +57,18 @@ struct LibraryView: View {
     }
 
     private func row(_ entry: PuzzleBankEntry) -> some View {
-        HStack {
+        let isDone = progressModel?.isCompleted(entry.id) ?? false
+        return HStack {
             Text(LibraryCopy.title(entry.difficulty)).font(.headline)
                 .accessibilityHidden(true) // 文字已并入整行标签
             if model.needsTrial(entry) {
                 TrialTagView()
             }
             Spacer()
+            if isDone {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.pineGreen)
+                    .accessibilityHidden(true) // 已并入整行标签
+            }
             Text(LibraryCopy.title(entry.source))
                 .font(.caption).padding(.horizontal, 8).padding(.vertical, 2)
                 .background(.quaternary, in: Capsule())
@@ -81,7 +88,10 @@ struct LibraryView: View {
         .onTapGesture { open(entry) } // 徽章是 Button，会先吃掉自己的点击
         // contain：徽章保留为独立元素，VoiceOver 可单独聚焦和激活
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(LibraryCopy.title(entry.difficulty))，\(LibraryCopy.title(entry.source))")
+        .accessibilityLabel(
+            "\(LibraryCopy.title(entry.difficulty))，\(LibraryCopy.title(entry.source))"
+                + ProgressCopy.stateSuffix(isCompleted: isDone, isInProgress: false)
+        )
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(.default) { open(entry) }
     }

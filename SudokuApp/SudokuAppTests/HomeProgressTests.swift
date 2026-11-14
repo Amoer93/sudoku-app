@@ -130,6 +130,23 @@ final class HomeProgressTests: XCTestCase {
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false, isInProgress: true), "第 12 题，玩到一半")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true, isInProgress: true), "第 12 题，玩到一半")
         XCTAssertEqual([ProgressCopy.resume, ProgressCopy.resumeHint], ["继续上一次", "接着上次的棋盘玩"])
+        let restartCopy = [ProgressCopy.restartAction, ProgressCopy.restartMessage]
+        XCTAssertEqual(restartCopy, ["重新开始这一题", "这一题现在的进度会被清掉，要重新开始吗？"])
+        XCTAssertEqual([ProgressCopy.restartConfirm, ProgressCopy.restartCancel], ["重新开始", "先不了"])
+        // 要保留的存档：题库里任何来源的题 + 两个小棋盘；题库读空时不清理
+        let known = HomeProgress.knownSessionIDs(bank: bank())
+        let expected = Set(["a", "b", "c", "u", "m", "fixture-4", "fixture-5"].map { PuzzleFingerprint(value: $0) })
+        XCTAssertEqual(known, expected)
+        XCTAssertNil(HomeProgress.knownSessionIDs(bank: PuzzleBank(entries: [])))
+        // 行朗读：玩到一半优先，不会同时读「已经做完」
+        let suffixes = [(true, true), (true, false), (false, false)].map {
+            ProgressCopy.stateSuffix(isCompleted: $0.0, isInProgress: $0.1)
+        }
+        XCTAssertEqual(suffixes, ["，玩到一半", "，已经做完", ""])
+        let aID = PuzzleFingerprint(value: "a")
+        let tile = HomeProgress(entries: [entry("a", score: 1)], restartableIDs: [aID]).tiles[0]
+        XCTAssertTrue(tile.isRestartable)
+        XCTAssertFalse(tile.isInProgress)
     }
 
     func testInProgressTilesAndResumeTarget() {

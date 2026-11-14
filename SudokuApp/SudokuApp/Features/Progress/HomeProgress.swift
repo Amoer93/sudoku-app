@@ -10,6 +10,10 @@ enum ProgressCopy {
     static let sessionLost = "上次的棋盘没能找回来，我们帮你重新开始这一题吧。"
     static let smallBoards = "小棋盘练习"
     static let emptyDifficulty = "这一档还没有题目，先玩玩小棋盘吧"
+    static let restartAction = "重新开始这一题"
+    static let restartMessage = "这一题现在的进度会被清掉，要重新开始吗？"
+    static let restartConfirm = "重新开始"
+    static let restartCancel = "先不了"
     static func progress(done: Int, total: Int) -> String { "已经做完 \(done) 道，一共 \(total) 道" }
     static func progressVoiceOver(done: Int, total: Int) -> String { "这一档做完了 \(done) 道，一共 \(total) 道" }
     static func cumulative(_ count: Int) -> String { "一共做完了 \(count) 道题，真棒！" }
@@ -21,6 +25,11 @@ enum ProgressCopy {
     static let resume = "继续上一次"
     static let resumeHint = "接着上次的棋盘玩"
     static let inProgress = "玩到一半"
+    /// 行尾的朗读后缀，规则同格子：玩到一半优先，其次已经做完。
+    static func stateSuffix(isCompleted: Bool, isInProgress: Bool) -> String {
+        if isInProgress { return "，" + inProgress }
+        return isCompleted ? "，已经做完" : ""
+    }
     /// 玩到一半优先：玩家点进去会接着那一局。
     static func tileVoiceOver(number: Int, isCompleted: Bool, isInProgress: Bool = false) -> String {
         "第 \(number) 题，" + (isInProgress ? inProgress : (isCompleted ? "已经做完" : "新题"))
@@ -48,6 +57,7 @@ struct HomeProgress {
         let isCompleted: Bool
         let isLastPlayed: Bool
         var isInProgress = false // 有没做完、也没用过全解的存档
+        var isRestartable = false // 有当前版本的存档（含全解的），可以清掉重来
         var id: PuzzleFingerprint { entry.id }
     }
 
@@ -57,16 +67,19 @@ struct HomeProgress {
     let entries: [PuzzleBankEntry]
     let records: PuzzleProgressRecords
     let inProgressIDs: Set<PuzzleFingerprint>
+    let restartableIDs: Set<PuzzleFingerprint>
     private let completedIDs: Set<PuzzleFingerprint>
 
     init(
         entries: [PuzzleBankEntry],
         records: PuzzleProgressRecords = PuzzleProgressRecords(),
-        inProgressIDs: Set<PuzzleFingerprint> = []
+        inProgressIDs: Set<PuzzleFingerprint> = [],
+        restartableIDs: Set<PuzzleFingerprint> = []
     ) {
         self.entries = entries
         self.records = records
         self.inProgressIDs = inProgressIDs
+        self.restartableIDs = restartableIDs
         completedIDs = Set(records.completed.map(\.id))
     }
 
@@ -79,8 +92,15 @@ struct HomeProgress {
     var tiles: [Tile] {
         entries.enumerated().map { offset, entry in
             Tile(number: offset + 1, entry: entry, isCompleted: completedIDs.contains(entry.id),
-                 isLastPlayed: records.lastPlayed?.id == entry.id, isInProgress: inProgressIDs.contains(entry.id))
+                 isLastPlayed: records.lastPlayed?.id == entry.id, isInProgress: inProgressIDs.contains(entry.id),
+                 isRestartable: restartableIDs.contains(entry.id))
         }
+    }
+
+    /// 存档要保留的题：题库里所有题（任何来源）加两个小棋盘。题库读空时返回 nil，免得误删。
+    static func knownSessionIDs(bank: any PuzzleBankProviding) -> Set<PuzzleFingerprint>? {
+        let all = bank.entries(difficulty: nil, source: nil, sort: .sourceThenDifficulty)
+        return all.isEmpty ? nil : Set(all.map(\.id)).union([fixture4, fixture5])
     }
 
     func isCompleted(_ id: PuzzleFingerprint) -> Bool { completedIDs.contains(id) }

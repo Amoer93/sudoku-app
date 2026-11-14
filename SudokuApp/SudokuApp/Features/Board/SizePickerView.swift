@@ -8,13 +8,28 @@ struct SizePickerView: View {
     // 点击时选一次题，避免视图刷新时反复抽题、求解
     @State private var route: PlayRoute?
     @State private var isOpening = false
+    // 用户题库文件读不出来或损坏时为 false：此时题库只有内置题，不能拿它清存档
+    @State private var allowsOrphanCleanup = true
+    // 长按「重新开始这一题」后等确认的那道题
+    @State private var restartID: PuzzleFingerprint?
     // 预览里没有进度模型，当作空进度
     @Environment(PuzzleProgressModel.self) private var progressModel: PuzzleProgressModel?
 
     private var progress: HomeProgress {
         HomeProgress(entries: library.builtinEntries(difficulty: difficulty),
                      records: progressModel?.records ?? PuzzleProgressRecords(),
-                     inProgressIDs: progressModel?.inProgressIDs ?? [])
+                     inProgressIDs: progressModel?.inProgressIDs ?? [],
+                     restartableIDs: progressModel?.restartableIDs ?? [])
+    }
+
+    private var isAskingRestart: Binding<Bool> {
+        Binding(get: { restartID != nil }, set: { if !$0 { restartID = nil } })
+    }
+
+    /// 刷新存档标记，并顺手清掉题已不存在的存档（只在回到首页时做，不在重绘里做）。
+    private func refreshSessions() {
+        let knownIDs = allowsOrphanCleanup ? HomeProgress.knownSessionIDs(bank: library.bank) : nil
+        progressModel?.refreshSessionIndex(keeping: knownIDs)
     }
 
     /// 上次玩的题能接着玩时才有值（有存档、不是全解、题还在）。
@@ -50,6 +65,11 @@ struct SizePickerView: View {
                     ForEach([BoardPreset.four, .five]) { preset in
                         Button { open(preset) } label: { presetLabel(preset) }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                if progress.restartableIDs.contains(fixtureSessionID(preset)) {
+                                    Button(ProgressCopy.restartAction) { restartID = fixtureSessionID(preset) }
+                                }
+                            }
                     }
                 }
                 Button(action: openRandom) {
@@ -66,7 +86,18 @@ struct SizePickerView: View {
             .navigationTitle(HomeCopy.title)
             .onAppear {
                 reloadLibrary()
-                progressModel?.refreshSessionIndex() // 刚关掉的棋盘可能写了或删了存档
+                refreshSessions() // 刚关掉的棋盘可能写了或删了存档
+            }
+            // 从棋盘退回首页时视图不一定重新出现，所以路由回到 nil 也要刷新
+            .onChange(of: route) { _, newRoute in if newRoute == nil { refreshSessions() } }
+            .confirmationDialog(
+                ProgressCopy.restartAction, isPresented: isAskingRestart, titleVisibility: .visible,
+                presenting: restartID // 用传进来的 id，免得关窗时 restartID 先被清空
+            ) { id in
+                Button(ProgressCopy.restartConfirm, role: .destructive) { progressModel?.restartPuzzle(id: id) }
+                Button(ProgressCopy.restartCancel, role: .cancel) {}
+            } message: { _ in
+                Text(ProgressCopy.restartMessage)
             }
             .navigationDestination(item: $route) { route in
                 // 每次点击一个新 id：换题时重建 BoardScreen，模型跟着刷新
@@ -88,7 +119,8 @@ struct SizePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } else {
-            PuzzleTileGrid(tiles: current.tiles) { tile in open(.nine, entry: tile.entry) }
+            PuzzleTileGrid(tiles: current.tiles, onSelect: { tile in open(.nine, entry: tile.entry) },
+                           onRestart: { tile in restartID = tile.id })
         }
     }
 
@@ -131,11 +163,18 @@ struct SizePickerView: View {
 
     /// 重新读文件，让刚导入的题能被看到。
     private func reloadLibrary() {
-        library.reload(PuzzleBankStore().load())
+        let result = PuzzleBankStore().loadResult()
+        allowsOrphanCleanup = result.allowsOrphanCleanup
+        library.reload(result.bank)
+    }
+
+    private func fixtureSessionID(_ preset: BoardPreset) -> PuzzleFingerprint {
+        preset == .four ? HomeProgress.fixture4 : HomeProgress.fixture5
     }
 
     private func presetLabel(_ preset: BoardPreset) -> some View {
-        let fixtureID = preset == .four ? HomeProgress.fixture4 : HomeProgress.fixture5
+        let fixtureID = fixtureSessionID(preset)
+        let isInProgress = progress.inProgressIDs.contains(fixtureID)
         return HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(preset.title)
@@ -145,7 +184,7 @@ struct SizePickerView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            if progress.inProgressIDs.contains(fixtureID) {
+            if isInProgress {
                 Text(ProgressCopy.inProgress).font(.caption).foregroundStyle(AppTheme.pineGreen)
             }
             if progress.isCompleted(fixtureID) {
@@ -155,8 +194,8 @@ struct SizePickerView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "\(preset.title)，\(preset.detail)" + (progress.isCompleted(fixtureID) ? "，已经做完" : "")
-                + (progress.inProgressIDs.contains(fixtureID) ? "，" + ProgressCopy.inProgress : "")
+            "\(preset.title)，\(preset.detail)"
+                + ProgressCopy.stateSuffix(isCompleted: progress.isCompleted(fixtureID), isInProgress: isInProgress)
         )
     }
 }

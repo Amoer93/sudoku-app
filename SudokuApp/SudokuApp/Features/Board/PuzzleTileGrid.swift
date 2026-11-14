@@ -49,6 +49,8 @@ struct ProgressCardView: View {
 struct PuzzleTileGrid: View {
     let tiles: [HomeProgress.Tile]
     let onSelect: (HomeProgress.Tile) -> Void
+    /// 长按菜单「重新开始这一题」；只有带存档的格子才显示。
+    var onRestart: ((HomeProgress.Tile) -> Void)?
 
     private let columns = [GridItem(.adaptive(minimum: 48), spacing: 8)]
 
@@ -60,6 +62,11 @@ struct PuzzleTileGrid: View {
                     .accessibilityLabel(ProgressCopy.tileVoiceOver(
                         number: tile.number, isCompleted: tile.isCompleted, isInProgress: tile.isInProgress
                     ))
+                    .contextMenu {
+                        if tile.isRestartable, let onRestart {
+                            Button(ProgressCopy.restartAction) { onRestart(tile) }
+                        }
+                    }
             }
         }
         .padding(.vertical, 4)
