@@ -174,6 +174,6 @@ final class HomeProgressTests: XCTestCase {
         XCTAssertEqual(HomeProgress(entries: list).summaryText, ProgressCopy.zeroDone)
         let all = HomeProgress(entries: list, records: records(done: list.map(\.id.value)))
         XCTAssertEqual(all.summaryText, ProgressCopy.allDone)
-        XCTAssertEqual(HomeProgress(entries: []).summaryText, ProgressCopy.emptyDifficulty)
+        XCTAssertEqual(HomeProgress(entries: []).summaryText, "这一档还没有题目，换一个难度或棋盘试试吧")
     }
 }

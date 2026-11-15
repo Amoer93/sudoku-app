@@ -10,7 +10,7 @@ enum ProgressCopy {
     static let sessionLost = "上次的棋盘没能找回来，我们帮你重新开始这一题吧。"
     static let smallBoards = "棋盘挑选"
     static let moreFeatures = "其他功能"
-    static let emptyDifficulty = "这一档还没有题目，先玩玩小棋盘吧"
+    static let emptyDifficulty = "这一档还没有题目，换一个难度或棋盘试试吧"
     static let restartAction = "重新开始这一题"
     static let restartMessage = "这一题现在的进度会被清掉，要重新开始吗？"
     static let restartConfirm = "重新开始"
@@ -19,9 +19,12 @@ enum ProgressCopy {
     static func progressVoiceOver(done: Int, total: Int) -> String { "这一档做完了 \(done) 道，一共 \(total) 道" }
     static func cumulative(_ count: Int) -> String { "一共做完了 \(count) 道题，真棒！" }
     static func lastPlayedFixture(size: Int) -> String { "上次玩的：\(size)×\(size)" }
-    static func lastPlayedBank(difficulty: Difficulty, number: Int?) -> String {
-        guard let number else { return "上次玩的：" + LibraryCopy.title(difficulty) }
-        return "上次玩的：\(LibraryCopy.title(difficulty)) · 第 \(number) 题"
+    /// 小棋盘的题前面多写尺寸，例如「上次玩的：4×4 · 简单 · 第 2 题」。
+    static func lastPlayedBank(difficulty: Difficulty, number: Int?, size: Int = 9) -> String {
+        var name = LibraryCopy.title(difficulty)
+        if size != 9 { name = "\(size)×\(size) · " + name }
+        guard let number else { return "上次玩的：" + name }
+        return "上次玩的：\(name) · 第 \(number) 题"
     }
     static let resume = "继续上一次"
     static let resumeHint = "接着上次的棋盘玩"
@@ -51,9 +54,9 @@ enum ResumeTarget: Equatable {
 }
 
 extension PuzzleBankProviding {
-    /// 某难度的内置题，按难度从易到难排；首页格子和进度都只看这份。
-    func builtinEntries(difficulty: Difficulty) -> [PuzzleBankEntry] {
-        entries(difficulty: difficulty, source: .builtin, sort: .difficultyAscending)
+    /// 某尺寸、某难度的内置题，按难度从易到难排；首页格子和进度都只看这份。不传尺寸就是 9×9。
+    func builtinEntries(difficulty: Difficulty, size: Int = 9) -> [PuzzleBankEntry] {
+        entries(size: size, difficulty: difficulty, source: .builtin, sort: .difficultyAscending)
     }
 }
 
@@ -99,15 +102,16 @@ struct HomeProgress {
 
     var tiles: [Tile] {
         entries.enumerated().map { offset, entry in
-            // 只看这道题所在难度记的那一条，别的难度玩过什么不影响这里
-            let lastPlayedID = records.lastPlayedByDifficulty[entry.difficulty]?.id
+            // 只看这道题所在尺寸和难度记的那一条，别的尺寸、难度玩过什么不影响这里
+            let lastPlayedID = records.lastPlayed(size: entry.size, difficulty: entry.difficulty)?.id
             return Tile(number: offset + 1, entry: entry, isCompleted: completedIDs.contains(entry.id),
                         isLastPlayed: lastPlayedID == entry.id, isInProgress: inProgressIDs.contains(entry.id),
                         isRestartable: restartableIDs.contains(entry.id))
         }
     }
 
-    /// 存档要保留的题：题库里所有题（任何来源）加两个小棋盘。题库读空时返回 nil，免得误删。
+    /// 存档要保留的题：题库里所有题（任何来源）加两道旧固定题。题库读空时返回 nil，免得误删。
+    /// 首页要传合并了小棋盘题的题库，否则小棋盘的存档会被当成孤儿删掉。
     static func knownSessionIDs(bank: any PuzzleBankProviding) -> Set<PuzzleFingerprint>? {
         let all = bank.entries(difficulty: nil, source: nil, sort: .sourceThenDifficulty)
         return all.isEmpty ? nil : Set(all.map(\.id)).union([fixture4, fixture5])
@@ -135,13 +139,15 @@ struct HomeProgress {
         return ProgressCopy.progress(done: doneCount, total: total)
     }
 
-    /// 「上次玩的」那一行；固定题和题库题分开处理。
+    /// 「上次玩的」那一行；旧固定题只说尺寸，题库题说（尺寸）难度和题号。
     static func lastPlayedText(_ record: LastPlayedRecord?, bank: any PuzzleBankProviding) -> String {
         guard let record else { return ProgressCopy.lastPlayedNone }
-        if record.id == fixture4 || record.size == 4 { return ProgressCopy.lastPlayedFixture(size: 4) }
-        if record.id == fixture5 || record.size == 5 { return ProgressCopy.lastPlayedFixture(size: 5) }
+        if record.id == fixture4 { return ProgressCopy.lastPlayedFixture(size: 4) }
+        if record.id == fixture5 { return ProgressCopy.lastPlayedFixture(size: 5) }
         guard let difficulty = record.difficulty else { return ProgressCopy.lastPlayedNone }
-        let position = bank.builtinEntries(difficulty: difficulty).firstIndex { $0.id == record.id }
-        return ProgressCopy.lastPlayedBank(difficulty: difficulty, number: position.map { $0 + 1 })
+        // 题号要在同一个尺寸、同一个难度的内置题里数
+        let size = record.size ?? 9
+        let position = bank.builtinEntries(difficulty: difficulty, size: size).firstIndex { $0.id == record.id }
+        return ProgressCopy.lastPlayedBank(difficulty: difficulty, number: position.map { $0 + 1 }, size: size)
     }
 }
