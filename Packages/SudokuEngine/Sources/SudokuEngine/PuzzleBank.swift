@@ -93,7 +93,17 @@ public struct PuzzleBank: Codable, Sendable {
     }
 
     public static func loadBuiltin(bundle: Bundle) throws -> [PuzzleBankEntry] {
-        guard let url = bundle.url(forResource: "BuiltinPuzzles", withExtension: "json") else {
+        try decodeEntries(resource: "BuiltinPuzzles", bundle: bundle)
+    }
+
+    /// 加载 4×4、5×5 的小棋盘内置题（SmallBuiltinPuzzles.json）。不会混进 9×9 题库。
+    public static func loadSmallBuiltin(bundle: Bundle? = nil) throws -> [PuzzleBankEntry] {
+        // Bundle.module 是包内部的，不能直接当公开方法的默认值
+        try decodeEntries(resource: "SmallBuiltinPuzzles", bundle: bundle ?? .module)
+    }
+
+    private static func decodeEntries(resource: String, bundle: Bundle) throws -> [PuzzleBankEntry] {
+        guard let url = bundle.url(forResource: resource, withExtension: "json") else {
             throw PuzzleBankLoadError.missingResource
         }
         let decoder = JSONDecoder()
@@ -161,11 +171,13 @@ public struct PuzzleBank: Codable, Sendable {
     public func entries(
         difficulty: Difficulty? = nil,
         source: PuzzleSource? = nil,
-        sort: PuzzleSort = .difficultyAscending
+        sort: PuzzleSort = .difficultyAscending,
+        size: Int? = nil
     ) -> [PuzzleBankEntry] {
         var result = entries
         if let difficulty { result = result.filter { $0.difficulty == difficulty } }
         if let source { result = result.filter { $0.source == source } }
+        if let size { result = result.filter { $0.size == size } }
         result.sort { compare(sortKey(for: $0, sort: sort), sortKey(for: $1, sort: sort)) }
         return result
     }
@@ -173,15 +185,20 @@ public struct PuzzleBank: Codable, Sendable {
     public func randomEntry<G: RandomNumberGenerator>(
         difficulty: Difficulty? = nil,
         source: PuzzleSource? = nil,
-        using generator: inout G
+        using generator: inout G,
+        size: Int? = nil
     ) -> PuzzleBankEntry? {
-        let filtered = entries(difficulty: difficulty, source: source, sort: .difficultyAscending)
+        let filtered = entries(difficulty: difficulty, source: source, sort: .difficultyAscending, size: size)
         return filtered.randomElement(using: &generator)
     }
 
-    public func randomEntry(difficulty: Difficulty? = nil, source: PuzzleSource? = nil) -> PuzzleBankEntry? {
+    public func randomEntry(
+        difficulty: Difficulty? = nil,
+        source: PuzzleSource? = nil,
+        size: Int? = nil
+    ) -> PuzzleBankEntry? {
         var generator = SystemRandomNumberGenerator()
-        return randomEntry(difficulty: difficulty, source: source, using: &generator)
+        return randomEntry(difficulty: difficulty, source: source, using: &generator, size: size)
     }
 
     public func userEntriesData() throws -> Data {

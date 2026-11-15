@@ -97,3 +97,18 @@ SE 基准值参考 [SukakuExplainer](https://github.com/SudokuMonster/SukakuExpl
 - 用户上传的题不能带覆盖：初始化和解码时都会把 `tierOverride` 丢掉，`add` 入库也一直按评分器结果分档。`DifficultyGrader` 本身不受影响。
 
 这个功能还在，但目前的内置题库没有用任何覆盖：每道题的档位都等于评分器的结果。内置题库是：简单 30、中等 30、困难 30、专家 60（30 道不需要试数的 SE 6.5 单数字染色题 + 30 道需要试数的 SE 11.0 题）。
+
+### 小棋盘内置题库（4×4、5×5）
+
+小棋盘的题单独放在 `SmallBuiltinPuzzles.json`，用 `PuzzleBank.loadSmallBuiltin()` 读取；`BuiltinPuzzles.json` 仍然只有 150 道 9×9 题。只分简单、困难两档，每个（边长，档位）20 题，共 80 题。
+
+入库条件（见 `SmallBoardRating.swift`）：唯一解，并且只靠“唯一数”就能一步步解完（宫内唯一 SE 1.2、行列唯一 SE 1.5、唯余 SE 2.3），不需要试数。`seRating` 是用到的最高 SE，`score` 是每一步 SE×10 的总和。
+
+| 边长 | 简单 | 困难 |
+| --- | --- | --- |
+| 4×4 | 给定数 8–10，且前半程每一步至少有 4 个格子能直接填 | 给定数 4–6 |
+| 5×5 | 给定数 12–14，且前半程每一步至少有 4 个格子能直接填 | 给定数 7–9 |
+
+指纹以 `s4-` / `s5-` 开头，不会和 9×9 指纹重复；转置、行列排列（4×4 要保持宫结构）、数字重标后相同的题算同一题。筛选时用 `entries(size:)` / `randomEntry(size:)` 按边长取题。
+
+重新生成：`GENERATE_SMALL_BUILTIN_PUZZLES=1 swift test -c release --filter SmallBuiltinPuzzleGenerationTests/testGenerateSmallBuiltinPuzzles`；校验文件和生成器一致：`VERIFY_BUILTIN_PUZZLES=1 swift test -c release --filter SmallBuiltinPuzzleGenerationTests`。
