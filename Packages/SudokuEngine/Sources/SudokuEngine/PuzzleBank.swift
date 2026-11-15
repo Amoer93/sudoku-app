@@ -171,34 +171,53 @@ public struct PuzzleBank: Codable, Sendable {
     public func entries(
         difficulty: Difficulty? = nil,
         source: PuzzleSource? = nil,
-        sort: PuzzleSort = .difficultyAscending,
-        size: Int? = nil
+        sort: PuzzleSort = .difficultyAscending
     ) -> [PuzzleBankEntry] {
         var result = entries
         if let difficulty { result = result.filter { $0.difficulty == difficulty } }
         if let source { result = result.filter { $0.source == source } }
-        if let size { result = result.filter { $0.size == size } }
         result.sort { compare(sortKey(for: $0, sort: sort), sortKey(for: $1, sort: sort)) }
         return result
+    }
+
+    /// 只取某个边长的题，其余筛选和排序同上。
+    public func entries(
+        size: Int,
+        difficulty: Difficulty? = nil,
+        source: PuzzleSource? = nil,
+        sort: PuzzleSort = .difficultyAscending
+    ) -> [PuzzleBankEntry] {
+        entries(difficulty: difficulty, source: source, sort: sort).filter { $0.size == size }
     }
 
     public func randomEntry<G: RandomNumberGenerator>(
         difficulty: Difficulty? = nil,
         source: PuzzleSource? = nil,
-        using generator: inout G,
-        size: Int? = nil
+        using generator: inout G
     ) -> PuzzleBankEntry? {
-        let filtered = entries(difficulty: difficulty, source: source, sort: .difficultyAscending, size: size)
+        let filtered = entries(difficulty: difficulty, source: source, sort: .difficultyAscending)
         return filtered.randomElement(using: &generator)
     }
 
-    public func randomEntry(
+    public func randomEntry(difficulty: Difficulty? = nil, source: PuzzleSource? = nil) -> PuzzleBankEntry? {
+        var generator = SystemRandomNumberGenerator()
+        return randomEntry(difficulty: difficulty, source: source, using: &generator)
+    }
+
+    /// 在某个边长的题里随机抽一题；没有符合条件的就返回 nil。
+    public func randomEntry<G: RandomNumberGenerator>(
+        size: Int,
         difficulty: Difficulty? = nil,
         source: PuzzleSource? = nil,
-        size: Int? = nil
+        using generator: inout G
     ) -> PuzzleBankEntry? {
+        entries(size: size, difficulty: difficulty, source: source).randomElement(using: &generator)
+    }
+
+    /// 同上，使用系统随机数。
+    public func randomEntry(size: Int, difficulty: Difficulty? = nil, source: PuzzleSource? = nil) -> PuzzleBankEntry? {
         var generator = SystemRandomNumberGenerator()
-        return randomEntry(difficulty: difficulty, source: source, using: &generator, size: size)
+        return randomEntry(size: size, difficulty: difficulty, source: source, using: &generator)
     }
 
     public func userEntriesData() throws -> Data {

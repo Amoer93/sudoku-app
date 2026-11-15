@@ -80,10 +80,10 @@ final class SmallBuiltinPuzzlesTests: XCTestCase {
         let bank = PuzzleBank(entries: try PuzzleBank.loadBuiltin() + PuzzleBank.loadSmallBuiltin(bundle: .module))
         XCTAssertEqual(bank.entries(size: 9).count, 150)
         XCTAssertEqual(bank.entries(size: 4).count, 40)
-        XCTAssertEqual(bank.entries(difficulty: .hard, size: 5).count, 20)
+        XCTAssertEqual(bank.entries(size: 5, difficulty: .hard).count, 20)
         XCTAssertEqual(bank.entries().count, 230)
-        XCTAssertEqual(bank.randomEntry(difficulty: .easy, size: 5)?.size, 5)
+        XCTAssertEqual(bank.randomEntry(size: 5, difficulty: .easy)?.size, 5)
         var generator = PuzzleRandomGenerator(seed: 1)
-        XCTAssertEqual(bank.randomEntry(using: &generator, size: 4)?.size, 4)
+        XCTAssertEqual(bank.randomEntry(size: 4, using: &generator)?.size, 4)
     }
 }

@@ -109,6 +109,6 @@ SE 基准值参考 [SukakuExplainer](https://github.com/SudokuMonster/SukakuExpl
 | 4×4 | 给定数 8–10，且前半程每一步至少有 4 个格子能直接填 | 给定数 4–6 |
 | 5×5 | 给定数 12–14，且前半程每一步至少有 4 个格子能直接填 | 给定数 7–9 |
 
-指纹以 `s4-` / `s5-` 开头，不会和 9×9 指纹重复；转置、行列排列（4×4 要保持宫结构）、数字重标后相同的题算同一题。筛选时用 `entries(size:)` / `randomEntry(size:)` 按边长取题。
+指纹以 `s4-` / `s5-` 开头，不会和 9×9 指纹重复；转置、行列排列（4×4 要保持宫结构）、数字重标后相同的题算同一题。筛选时用 单独的 `entries(size:difficulty:source:sort:)` / `randomEntry(size:...)`（原来不带 `size` 的方法签名没有变） 按边长取题。
 
 重新生成：`GENERATE_SMALL_BUILTIN_PUZZLES=1 swift test -c release --filter SmallBuiltinPuzzleGenerationTests/testGenerateSmallBuiltinPuzzles`；校验文件和生成器一致：`VERIFY_BUILTIN_PUZZLES=1 swift test -c release --filter SmallBuiltinPuzzleGenerationTests`。
