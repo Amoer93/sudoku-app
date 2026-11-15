@@ -9,7 +9,8 @@ enum ProgressCopy {
     static let lastPlayedNone = "还没玩过，先选一道题吧"
     static let random = "随机来一题"
     static let sessionLost = "上次的棋盘没能找回来，我们帮你重新开始这一题吧。"
-    static let smallBoards = "小棋盘练习"
+    static let smallBoards = "棋盘挑选"
+    static let moreFeatures = "其他功能"
     static let emptyDifficulty = "这一档还没有题目，先玩玩小棋盘吧"
     static let restartAction = "重新开始这一题"
     static let restartMessage = "这一题现在的进度会被清掉，要重新开始吗？"
@@ -99,9 +100,11 @@ struct HomeProgress {
 
     var tiles: [Tile] {
         entries.enumerated().map { offset, entry in
-            Tile(number: offset + 1, entry: entry, isCompleted: completedIDs.contains(entry.id),
-                 isLastPlayed: records.lastPlayed?.id == entry.id, isInProgress: inProgressIDs.contains(entry.id),
-                 isRestartable: restartableIDs.contains(entry.id))
+            // 只看这道题所在难度记的那一条，别的难度玩过什么不影响这里
+            let lastPlayedID = records.lastPlayedByDifficulty[entry.difficulty]?.id
+            return Tile(number: offset + 1, entry: entry, isCompleted: completedIDs.contains(entry.id),
+                        isLastPlayed: lastPlayedID == entry.id, isInProgress: inProgressIDs.contains(entry.id),
+                        isRestartable: restartableIDs.contains(entry.id))
         }
     }
 
@@ -114,6 +117,7 @@ struct HomeProgress {
     func isCompleted(_ id: PuzzleFingerprint) -> Bool { completedIDs.contains(id) }
 
     /// 上次玩的题要有玩到一半的存档，并且打得开才能继续；否则返回 nil（按钮隐藏）。
+    /// 传进来的是「当前难度那一条」或「固定题那一条」，不是总的 lastPlayed。
     static func resumeTarget(
         lastPlayed: LastPlayedRecord?, inProgressIDs: Set<PuzzleFingerprint>, bank: any PuzzleBankProviding
     ) -> ResumeTarget? {

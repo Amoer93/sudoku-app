@@ -107,6 +107,62 @@ final class PuzzleProgressCompletionTests: XCTestCase {
         XCTAssertEqual(model.lastPlayed?.size, 5)
     }
 
+    // MARK: - 每个难度各记一道
+
+    func testOldLastPlayedMigratesIntoItsDifficultySlot() throws {
+        // 旧版 App 的文件：只有 lastPlayed，没有新字段
+        let text = """
+        {"schemaVersion":1,"completed":[],
+         "lastPlayed":{"id":"def","difficulty":2,"playedAt":1700000100000}}
+        """
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data(text.utf8).write(to: fileURL)
+
+        let loaded = PuzzleProgressStore(fileURL: fileURL).load()
+        XCTAssertFalse(loaded.isReadOnly)
+        XCTAssertEqual(loaded.records.lastPlayedByDifficulty.hard?.id, fingerprint("def"))
+        XCTAssertEqual(loaded.records.lastPlayedByDifficulty.all.count, 1)
+        XCTAssertNil(loaded.records.lastPlayedFixture)
+        XCTAssertEqual(loaded.records.lastPlayed?.id, fingerprint("def"))
+        // 没被当成坏文件：原文件还在，旁边也没有 corrupt 文件
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+        let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        XCTAssertEqual(names, ["records.json"])
+    }
+
+    func testOldFixtureLastPlayedMigratesIntoFixtureSlot() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        // 有 size 的，和更早没有 size、只能靠 id 认的，都要进固定题那一条
+        let sized = #"{"id":"fixture-5","size":5,"playedAt":1}"#
+        let bare = #"{"id":"fixture-4","playedAt":1}"#
+        for (lastPlayed, expected) in [(sized, "fixture-5"), (bare, "fixture-4")] {
+            let text = #"{"schemaVersion":1,"completed":[],"lastPlayed":"# + lastPlayed + "}"
+            let records = try decoder.decode(PuzzleProgressRecords.self, from: Data(text.utf8))
+            XCTAssertEqual(records.lastPlayedFixture?.id, fingerprint(expected))
+            XCTAssertTrue(records.lastPlayedByDifficulty.all.isEmpty)
+        }
+    }
+
+    func testDifficultiesAndFixtureDoNotOverwriteEachOther() {
+        let model = makeModel()
+        model.setLastPlayed(id: fingerprint("e1"), difficulty: .easy, size: 9, at: Date(timeIntervalSince1970: 10))
+        model.setLastPlayed(id: fingerprint("x1"), difficulty: .expert, size: 9, at: Date(timeIntervalSince1970: 20))
+        model.setLastPlayed(id: fingerprint("fixture-4"), size: 4, at: Date(timeIntervalSince1970: 30))
+        model.setLastPlayed(id: fingerprint("e2"), difficulty: .easy, size: 9, at: Date(timeIntervalSince1970: 40))
+
+        // 重新读一遍文件，确认存盘后也是各记各的
+        let saved = PuzzleProgressStore(fileURL: fileURL).load().records
+        XCTAssertEqual(saved, model.records)
+        XCTAssertEqual(saved.lastPlayedByDifficulty.easy?.id, fingerprint("e2"))
+        XCTAssertEqual(saved.lastPlayedByDifficulty.expert?.id, fingerprint("x1"))
+        XCTAssertNil(saved.lastPlayedByDifficulty.medium)
+        XCTAssertNil(saved.lastPlayedByDifficulty.hard)
+        XCTAssertEqual(saved.lastPlayedFixture?.id, fingerprint("fixture-4"))
+        // 旧字段写的是最近的那一条
+        XCTAssertEqual(saved.lastPlayed?.id, fingerprint("e2"))
+    }
+
     func testIdentityRules() {
         let entry = makeEntry(id: "bank")
         let bank = ProgressPuzzleIdentity(bankEntry: entry, preset: .nine, isCustomPuzzle: true)

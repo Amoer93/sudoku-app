@@ -25,8 +25,23 @@ final class HomeProgressTests: XCTestCase {
     private func records(done: [String], lastPlayed: LastPlayedRecord? = nil) -> PuzzleProgressRecords {
         var result = PuzzleProgressRecords()
         result.completed = done.map { CompletedRecord(id: PuzzleFingerprint(value: $0), completedAt: epoch) }
-        result.lastPlayed = lastPlayed
+        if let lastPlayed { result.recordLastPlayed(lastPlayed) }
         return result
+    }
+
+    func testTilesOnlyMarkLastPlayedOfTheirOwnDifficulty() {
+        let bank = bank()
+        var data = PuzzleProgressRecords()
+        data.recordLastPlayed(LastPlayedRecord(id: PuzzleFingerprint(value: "a"), difficulty: .easy, playedAt: epoch))
+        // 后来去玩了中等的题：简单那一格还是标着，两档各记各的
+        let later = Date(timeIntervalSince1970: 60)
+        data.recordLastPlayed(LastPlayedRecord(id: PuzzleFingerprint(value: "m"), difficulty: .medium, playedAt: later))
+        let easyTiles = HomeProgress(entries: bank.builtinEntries(difficulty: .easy), records: data).tiles
+        XCTAssertEqual(easyTiles.filter(\.isLastPlayed).map(\.entry.id.value), ["a"])
+        let mediumTiles = HomeProgress(entries: bank.builtinEntries(difficulty: .medium), records: data).tiles
+        XCTAssertEqual(mediumTiles.filter(\.isLastPlayed).map(\.entry.id.value), ["m"])
+        XCTAssertEqual(ProgressCopy.smallBoards, "棋盘挑选")
+        XCTAssertEqual(ProgressCopy.moreFeatures, "其他功能")
     }
 
     private func bank() -> PuzzleBank {

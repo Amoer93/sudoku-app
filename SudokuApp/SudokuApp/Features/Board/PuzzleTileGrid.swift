@@ -38,23 +38,12 @@ extension View {
     }
 }
 
-/// 进度卡片：上次玩的（需要时才有）、进度条、做完几道、累计。
+/// 进度卡片：进度条、做完几道、累计。「上次玩的」由格子和棋盘挑选上的 ▶ 表示。
 struct ProgressCardView: View {
-    /// 「上次玩的」那一行怎么显示。题已经在这页上时，由格子或小棋盘行负责，这里不重复。
-    enum LastPlayedLine: Equatable {
-        case hidden
-        case plain(String) // 还不能继续：只是一行浅色字
-        case resume(String) // 能继续，但题不在这页上：整行可点
-    }
-
     let progress: HomeProgress
-    var lastPlayed: LastPlayedLine = .hidden
-    var resumeLabel = ProgressCopy.resume
-    var onResume: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            lastPlayedRow
             ProgressView(value: progress.fraction)
                 .tint(AppTheme.pineGreen)
                 .accessibilityHidden(true)
@@ -64,34 +53,6 @@ struct ProgressCardView: View {
             if progress.totalCompletions > 0 {
                 Text(ProgressCopy.cumulative(progress.totalCompletions))
                     .font(.subheadline)
-            }
-        }
-    }
-
-    /// 放在进度条上面：下面的摘要要紧挨着格子，不能被这一行挤开。
-    @ViewBuilder private var lastPlayedRow: some View {
-        switch lastPlayed {
-        case .hidden:
-            EmptyView()
-        case .plain(let text):
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        case .resume(let text):
-            if let onResume {
-                Button(action: onResume) {
-                    HStack(spacing: 8) {
-                        Text(text).font(.subheadline)
-                        Spacer(minLength: 8)
-                        Image(systemName: "play.circle.fill").font(.title2)
-                    }
-                    .foregroundStyle(AppTheme.pineGreen)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(resumeLabel)
-                .accessibilityHint(ProgressCopy.resumeHint)
             }
         }
     }

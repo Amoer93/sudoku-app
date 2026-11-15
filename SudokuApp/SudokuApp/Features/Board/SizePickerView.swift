@@ -32,10 +32,20 @@ struct SizePickerView: View {
         progressModel?.refreshSessionIndex(keeping: knownIDs)
     }
 
-    /// 上次玩的题能接着玩时才有值（有存档、不是全解、题还在）。
-    private var resumeTarget: ResumeTarget? {
+    /// 当前难度上次玩的那一条；别的难度各记各的。
+    private var gridLastPlayed: LastPlayedRecord? {
+        progressModel?.records.lastPlayedByDifficulty[difficulty]
+    }
+
+    /// 4×4 / 5×5 固定题上次玩的那一条。
+    private var fixtureLastPlayed: LastPlayedRecord? {
+        progressModel?.records.lastPlayedFixture
+    }
+
+    /// 这一条能接着玩时才有值（有存档、不是全解、题还在）。
+    private func resumeTarget(for record: LastPlayedRecord?) -> ResumeTarget? {
         HomeProgress.resumeTarget(
-            lastPlayed: progressModel?.lastPlayed,
+            lastPlayed: record,
             inProgressIDs: progressModel?.inProgressIDs ?? [],
             bank: library.bank
         )
@@ -49,32 +59,28 @@ struct SizePickerView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .listRowSeparator(.hidden)
-                Picker(LibraryCopy.difficultyTitle, selection: $difficulty) {
-                    ForEach(Difficulty.allCases, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
+                Section {
+                    HStack(spacing: 8) {
+                        ForEach(BoardPreset.allCases) { preset in boardChip(preset) }
+                    }
+                } header: {
+                    Label(ProgressCopy.smallBoards, systemImage: "square.grid.3x3")
                 }
-                .pickerStyle(.segmented)
-                .listRowSeparator(.hidden) // 难度、进度、格子是一块，中间不要细线
-                // 分段控件放不下副标题，所以选中专家时在下面显示一行
-                if let subtitle = TrialTagCopy.pickerSubtitle(for: difficulty) {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel(subtitle)
-                        .listRowSeparator(.hidden)
+                Section {
+                    Picker(LibraryCopy.difficultyTitle, selection: $difficulty) {
+                        ForEach(Difficulty.allCases, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowSeparator(.hidden) // 难度、进度、格子是一块，中间不要细线
+                    progressSection
                 }
-                progressSection
-                Section(ProgressCopy.smallBoards) {
-                    ForEach([BoardPreset.four, .five]) { preset in smallBoardRow(preset) }
-                }
-                Button(action: openRandom) {
-                    Label(ProgressCopy.random, systemImage: "shuffle").font(.headline)
-                }
-                .buttonStyle(.plain)
-                NavigationLink(LibraryCopy.entry) {
-                    LibraryView(model: library).onAppear(perform: reloadLibrary)
-                }
-                NavigationLink(PhotoImportCopy.entry) {
-                    PhotoImportView()
+                Section(ProgressCopy.moreFeatures) {
+                    NavigationLink(LibraryCopy.entry) {
+                        LibraryView(model: library).onAppear(perform: reloadLibrary)
+                    }
+                    NavigationLink(PhotoImportCopy.entry) {
+                        PhotoImportView()
+                    }
                 }
             }
             .navigationTitle(HomeCopy.title)
@@ -105,77 +111,67 @@ struct SizePickerView: View {
     private var progressSection: some View {
         let current = progress
         let tiles = current.tiles
-        let target = resumeTarget
+        var onResume: (() -> Void)?
+        if let target = resumeTarget(for: gridLastPlayed) {
+            onResume = { resume(target) }
+        }
         return VStack(alignment: .leading, spacing: 12) {
-            ProgressCardView(progress: current, lastPlayed: lastPlayedLine(tiles: tiles, target: target),
-                             resumeLabel: resumeLabel, onResume: resumeLastPlayed)
+            ProgressCardView(progress: current)
             if current.total > 0 {
                 PuzzleTileGrid(tiles: tiles, onSelect: { tile in open(.nine, entry: tile.entry) },
                                onRestart: { tile in restartID = tile.id },
-                               resumeLabel: resumeLabel, onResume: target.map { _ in resumeLastPlayed })
+                               resumeLabel: resumeLabel(for: gridLastPlayed), onResume: onResume)
             }
         }
         .padding(.vertical, 4)
         .listRowSeparator(.hidden)
     }
 
-    /// 「上次玩的：…」短句；从没玩过、或说不出是哪道题时为 nil。
-    private var lastPlayedText: String? {
-        guard let record = progressModel?.lastPlayed else {
-            return nil
-        }
+    /// 继续控件的朗读，例如「继续上一次，困难第 4 题」；说不出是哪道题时只读「继续上一次」。
+    private func resumeLabel(for record: LastPlayedRecord?) -> String {
         let text = HomeProgress.lastPlayedText(record, bank: library.bank)
         if text == ProgressCopy.lastPlayedNone {
-            return nil
-        }
-        return text
-    }
-
-    /// 继续控件的朗读，例如「继续上一次，困难第 4 题」。
-    private var resumeLabel: String {
-        guard let text = lastPlayedText else {
             return ProgressCopy.resume
         }
         return ProgressCopy.resumeVoiceOver(from: text)
     }
 
-    /// 卡片里「上次玩的」那一行：题已经在这页上（格子或小棋盘行）就藏起来，同一条「继续」不出现两次。
-    private func lastPlayedLine(tiles: [HomeProgress.Tile], target: ResumeTarget?) -> ProgressCardView.LastPlayedLine {
-        let isOnGrid = tiles.contains { $0.isLastPlayed }
-        switch target {
-        case .fixture:
-            return .hidden // 继续控件在小棋盘那一行上
-        case .bank:
-            if isOnGrid {
-                return .hidden // 继续控件在格子上
+    /// 棋盘挑选里的一格。4×4 / 5×5 一点就开那道固定题；9×9 只表示「下面是九宫的题」，不另开题。
+    /// 开题按钮和继续控件是兄弟，不互相嵌套；两个按钮各挂同一个长按菜单。
+    @ViewBuilder
+    private func boardChip(_ preset: BoardPreset) -> some View {
+        if preset == .nine {
+            // 小棋盘一点就进棋盘，不会停在选中态，所以首页选中的一直是 9×9；点它不用做任何事
+            Button {} label: { chipLabel(preset, isSelected: true) }
+                .buttonStyle(.plain)
+                .accessibilityLabel(preset.title)
+                .accessibilityAddTraits(.isSelected)
+        } else {
+            let sessionID = fixtureSessionID(preset)
+            let restart = fixtureRestartAction(sessionID)
+            ZStack(alignment: .topLeading) {
+                Button { open(preset) } label: { chipLabel(preset, isSelected: false) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(preset.title + ProgressCopy.stateSuffix(
+                        isCompleted: progress.isCompleted(sessionID),
+                        isInProgress: progress.inProgressIDs.contains(sessionID)
+                    ))
+                    .restartContextMenu(action: restart)
+                if fixtureLastPlayed?.id == sessionID, let target = resumeTarget(for: fixtureLastPlayed) {
+                    ResumeButton(voiceOverLabel: resumeLabel(for: fixtureLastPlayed), symbol: "play.fill",
+                                 symbolFont: .caption2, alignment: .topLeading) { resume(target) }
+                        .restartContextMenu(action: restart)
+                }
             }
-            return .resume(lastPlayedText ?? ProgressCopy.resume)
-        case nil:
-            // 不能继续：格子有描边、小棋盘就在下面，都不用再写一行
-            let smallBoardTexts = [ProgressCopy.lastPlayedFixture(size: 4), ProgressCopy.lastPlayedFixture(size: 5)]
-            guard let text = lastPlayedText, !isOnGrid, !smallBoardTexts.contains(text) else {
-                return .hidden
-            }
-            return .plain(text)
         }
     }
 
-    /// 小棋盘的一行：开题按钮和继续控件是兄弟，不互相嵌套；两个按钮各挂同一个长按菜单。
-    private func smallBoardRow(_ preset: BoardPreset) -> some View {
-        let sessionID = fixtureSessionID(preset)
-        var restart: (() -> Void)?
-        if progress.restartableIDs.contains(sessionID) {
-            restart = { restartID = sessionID }
+    /// 固定题的「重新开始」动作；没有存档就没有。
+    private func fixtureRestartAction(_ sessionID: PuzzleFingerprint) -> (() -> Void)? {
+        guard progress.restartableIDs.contains(sessionID) else {
+            return nil
         }
-        return HStack(spacing: 8) {
-            Button { open(preset) } label: { presetLabel(preset) }
-                .buttonStyle(.plain)
-                .restartContextMenu(action: restart)
-            if resumeTarget == .fixture(preset) {
-                ResumeButton(voiceOverLabel: resumeLabel, action: resumeLastPlayed)
-                    .restartContextMenu(action: restart)
-            }
-        }
+        return { restartID = sessionID }
     }
 
     /// 点击时才选题（只选一次）；9×9 的求解在后台做，完成后再跳转。
@@ -196,23 +192,14 @@ struct SizePickerView: View {
         }
     }
 
-    /// 回到上次玩的题；题库题会先把难度切过去，进棋盘时由存档恢复。
-    private func resumeLastPlayed() {
-        switch resumeTarget {
+    /// 回到上次玩的题；进棋盘时由存档恢复。题库题就在当前难度的格子上，不用再切难度。
+    private func resume(_ target: ResumeTarget) {
+        switch target {
         case .fixture(let preset):
             open(preset)
-        case .bank(let entry, let level):
-            difficulty = level
+        case .bank(let entry, _):
             open(.nine, entry: entry)
-        case nil:
-            break
         }
-    }
-
-    /// 在所选难度的内置题里随机来一题；没有题就用内置示例题。
-    private func openRandom() {
-        var generator = SystemRandomNumberGenerator()
-        open(.nine, entry: progress.randomEntry(using: &generator))
     }
 
     /// 重新读文件，让刚导入的题能被看到。
@@ -226,32 +213,29 @@ struct SizePickerView: View {
         preset == .four ? HomeProgress.fixture4 : HomeProgress.fixture5
     }
 
-    private func presetLabel(_ preset: BoardPreset) -> some View {
+    /// 一格的样子：只有标题；选中（9×9）用松绿色底，小棋盘带「玩到一半」和对勾。
+    private func chipLabel(_ preset: BoardPreset, isSelected: Bool) -> some View {
         let fixtureID = fixtureSessionID(preset)
-        let isInProgress = progress.inProgressIDs.contains(fixtureID)
-        return HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(preset.title)
-                    .font(.headline)
-                Text(preset.detail)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        let isFixture = preset != .nine
+        return ZStack(alignment: .topTrailing) {
+            VStack(spacing: 0) {
+                Text(preset.title).font(.headline)
+                if isFixture, progress.inProgressIDs.contains(fixtureID) {
+                    Text(ProgressCopy.inProgress).font(.caption2).lineLimit(1).minimumScaleFactor(0.6)
+                }
             }
-            Spacer()
-            if isInProgress {
-                Text(ProgressCopy.inProgress).font(.caption).foregroundStyle(AppTheme.pineGreen)
-            }
-            if progress.isCompleted(fixtureID) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.pineGreen)
+            .foregroundStyle(isSelected ? AppTheme.onButtonText : AppTheme.primaryText)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(isSelected ? AppTheme.pineGreen : AppTheme.raisedSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            if isFixture, progress.isCompleted(fixtureID) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.pineGreen)
+                    .padding(2)
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle()) // 点文字和图标中间的空白也算点到这一行
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(preset.title)，\(preset.detail)"
-                + ProgressCopy.stateSuffix(isCompleted: progress.isCompleted(fixtureID), isInProgress: isInProgress)
-        )
+        .contentShape(Rectangle()) // 点文字旁边的空白也算点到这一格
     }
 }
 
