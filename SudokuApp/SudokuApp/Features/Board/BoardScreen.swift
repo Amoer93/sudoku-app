@@ -142,7 +142,9 @@ private struct BoardContentView: View {
         }
         .onAppear {
             if let identity {
-                progress?.setLastPlayed(id: identity.id, difficulty: identity.difficulty, size: identity.size)
+                // 只有内置题才占难度档位；导入的题不带难度，免得挤掉同一档内置题的 ▶
+                let difficulty = bankEntry?.source == .builtin ? identity.difficulty : nil
+                progress?.setLastPlayed(id: identity.id, difficulty: difficulty, size: identity.size)
                 model.onPlayerCompleted = {
                     progress?.markCompleted(id: identity.id)
                     autosave?.clear()

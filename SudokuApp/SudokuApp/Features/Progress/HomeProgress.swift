@@ -7,7 +7,6 @@ enum ProgressCopy {
     static let allDone = "这一档全部做完啦，你太厉害了！"
     // 首页不再显示这一句（和顶部欢迎语重复），只用来表示「说不出上次玩的是哪道」
     static let lastPlayedNone = "还没玩过，先选一道题吧"
-    static let random = "随机来一题"
     static let sessionLost = "上次的棋盘没能找回来，我们帮你重新开始这一题吧。"
     static let smallBoards = "棋盘挑选"
     static let moreFeatures = "其他功能"
@@ -134,12 +133,6 @@ struct HomeProgress {
         if doneCount == total { return ProgressCopy.allDone }
         if doneCount == 0 { return ProgressCopy.zeroDone }
         return ProgressCopy.progress(done: doneCount, total: total)
-    }
-
-    /// 优先抽没做完的；全做完了就从全部里抽。
-    func randomEntry<G: RandomNumberGenerator>(using generator: inout G) -> PuzzleBankEntry? {
-        let fresh = entries.filter { !completedIDs.contains($0.id) }
-        return (fresh.isEmpty ? entries : fresh).randomElement(using: &generator)
     }
 
     /// 「上次玩的」那一行；固定题和题库题分开处理。

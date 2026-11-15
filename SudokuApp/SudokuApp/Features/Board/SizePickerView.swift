@@ -137,13 +137,13 @@ struct SizePickerView: View {
     }
 
     /// 棋盘挑选里的一格。4×4 / 5×5 一点就开那道固定题；9×9 只表示「下面是九宫的题」，不另开题。
-    /// 开题按钮和继续控件是兄弟，不互相嵌套；两个按钮各挂同一个长按菜单。
+    /// 小棋盘的开题按钮和继续控件是兄弟，不互相嵌套；两个按钮各挂同一个长按菜单。
     @ViewBuilder
     private func boardChip(_ preset: BoardPreset) -> some View {
         if preset == .nine {
-            // 小棋盘一点就进棋盘，不会停在选中态，所以首页选中的一直是 9×9；点它不用做任何事
-            Button {} label: { chipLabel(preset, isSelected: true) }
-                .buttonStyle(.plain)
+            // 小棋盘一点就进棋盘，不会停在选中态，所以首页选中的一直是 9×9；它只是展示，不是按钮
+            chipLabel(preset, isSelected: true)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(preset.title)
                 .accessibilityAddTraits(.isSelected)
         } else {

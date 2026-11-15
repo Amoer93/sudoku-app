@@ -103,17 +103,10 @@ extension PuzzleProgressRecords {
         }
     }
 
-    /// 记下刚玩的题：只动它自己的档位（或固定题），其他档位不变。
+    /// 记下刚玩的题：只动它自己的档位（或固定题），其他档位不变；旧字段总是写刚记下的这一条。
     mutating func recordLastPlayed(_ record: LastPlayedRecord) {
         place(record)
-        var newest: LastPlayedRecord?
-        for candidate in lastPlayedByDifficulty.all + [lastPlayedFixture].compactMap({ $0 }) {
-            if let current = newest, current.playedAt > candidate.playedAt {
-                continue
-            }
-            newest = candidate
-        }
-        lastPlayed = newest ?? record
+        lastPlayed = record
     }
 
     private mutating func place(_ record: LastPlayedRecord) {

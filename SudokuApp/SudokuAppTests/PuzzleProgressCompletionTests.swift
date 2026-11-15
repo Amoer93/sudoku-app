@@ -163,6 +163,16 @@ final class PuzzleProgressCompletionTests: XCTestCase {
         XCTAssertEqual(saved.lastPlayed?.id, fingerprint("e2"))
     }
 
+    func testImportedPuzzleDoesNotTakeBuiltinDifficultySlot() {
+        let model = makeModel()
+        model.setLastPlayed(id: fingerprint("builtin-easy"), difficulty: .easy, size: 9)
+        // 导入的简单题不带难度：只记总的「上次玩的」，不占简单那一档
+        model.setLastPlayed(id: fingerprint("imported-easy"), difficulty: nil, size: 9)
+
+        XCTAssertEqual(model.records.lastPlayedByDifficulty.easy?.id, fingerprint("builtin-easy"))
+        XCTAssertEqual(model.records.lastPlayed?.id, fingerprint("imported-easy"))
+    }
+
     func testIdentityRules() {
         let entry = makeEntry(id: "bank")
         let bank = ProgressPuzzleIdentity(bankEntry: entry, preset: .nine, isCustomPuzzle: true)
