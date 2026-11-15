@@ -56,8 +56,9 @@ final class PuzzleProgressModel {
         persist()
     }
 
+    /// 只更新这道题自己的档位（或固定题那一条），别的档位留着。
     func setLastPlayed(id: PuzzleFingerprint, difficulty: Difficulty? = nil, size: Int? = nil, at date: Date = Date()) {
-        records.lastPlayed = LastPlayedRecord(id: id, difficulty: difficulty, size: size, playedAt: date)
+        records.recordLastPlayed(LastPlayedRecord(id: id, difficulty: difficulty, size: size, playedAt: date))
         persist()
     }
 

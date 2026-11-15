@@ -19,17 +19,6 @@ enum BoardPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    var detail: String {
-        switch self {
-        case .four:
-            return "2×2 宫"
-        case .five:
-            return "拉丁方，无宫"
-        case .nine:
-            return "3×3 宫"
-        }
-    }
-
     var rules: Rules {
         switch self {
         case .four:

@@ -55,7 +55,6 @@ final class BoardModelTests: XCTestCase {
         XCTAssertEqual(BoardPreset.four.rules, Rules.fourByFour)
         XCTAssertEqual(BoardPreset.five.rules, Rules.fiveByFive)
         XCTAssertEqual(BoardPreset.nine.rules, Rules.nineByNine)
-        XCTAssertEqual(BoardPreset.five.detail, "拉丁方，无宫")
         XCTAssertNil(Rules.fiveByFive.boxRows)
         XCTAssertTrue(Rules.nineByNine.hasBoxes)
     }

@@ -3,14 +3,6 @@ import Foundation
 import SudokuEngine
 import XCTest
 
-private struct SeededGenerator: RandomNumberGenerator {
-    var state: UInt64
-    mutating func next() -> UInt64 {
-        state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-        return state
-    }
-}
-
 final class HomeProgressTests: XCTestCase {
     private let epoch = Date(timeIntervalSince1970: 0)
 
@@ -25,8 +17,23 @@ final class HomeProgressTests: XCTestCase {
     private func records(done: [String], lastPlayed: LastPlayedRecord? = nil) -> PuzzleProgressRecords {
         var result = PuzzleProgressRecords()
         result.completed = done.map { CompletedRecord(id: PuzzleFingerprint(value: $0), completedAt: epoch) }
-        result.lastPlayed = lastPlayed
+        if let lastPlayed { result.recordLastPlayed(lastPlayed) }
         return result
+    }
+
+    func testTilesOnlyMarkLastPlayedOfTheirOwnDifficulty() {
+        let bank = bank()
+        var data = PuzzleProgressRecords()
+        data.recordLastPlayed(LastPlayedRecord(id: PuzzleFingerprint(value: "a"), difficulty: .easy, playedAt: epoch))
+        // 后来去玩了中等的题：简单那一格还是标着，两档各记各的
+        let later = Date(timeIntervalSince1970: 60)
+        data.recordLastPlayed(LastPlayedRecord(id: PuzzleFingerprint(value: "m"), difficulty: .medium, playedAt: later))
+        let easyTiles = HomeProgress(entries: bank.builtinEntries(difficulty: .easy), records: data).tiles
+        XCTAssertEqual(easyTiles.filter(\.isLastPlayed).map(\.entry.id.value), ["a"])
+        let mediumTiles = HomeProgress(entries: bank.builtinEntries(difficulty: .medium), records: data).tiles
+        XCTAssertEqual(mediumTiles.filter(\.isLastPlayed).map(\.entry.id.value), ["m"])
+        XCTAssertEqual(ProgressCopy.smallBoards, "棋盘挑选")
+        XCTAssertEqual(ProgressCopy.moreFeatures, "其他功能")
     }
 
     private func bank() -> PuzzleBank {
@@ -75,33 +82,6 @@ final class HomeProgressTests: XCTestCase {
         XCTAssertTrue(tiles.dropFirst(2).allSatisfy { !$0.isCompleted && !$0.isLastPlayed })
     }
 
-    // MARK: - 随机
-
-    func testRandomNeverPicksDoneWhenFreshExists() {
-        let list = bank().builtinEntries(difficulty: .easy)
-        let doneID = list[0].id
-        let progress = HomeProgress(entries: list, records: records(done: [doneID.value]))
-        var generator = SeededGenerator(state: 7)
-        for _ in 0 ..< 50 {
-            let picked = progress.randomEntry(using: &generator)
-            XCTAssertNotNil(picked)
-            XCTAssertNotEqual(picked?.id, doneID)
-        }
-    }
-
-    func testRandomStillPicksWhenAllDone() {
-        let list = bank().builtinEntries(difficulty: .easy)
-        let progress = HomeProgress(entries: list, records: records(done: list.map(\.id.value)))
-        var generator = SeededGenerator(state: 3)
-        let picked = progress.randomEntry(using: &generator)
-        XCTAssertTrue(list.contains { $0.id == picked?.id })
-    }
-
-    func testRandomIsNilWhenNoEntries() {
-        var generator = SeededGenerator(state: 1)
-        XCTAssertNil(HomeProgress(entries: []).randomEntry(using: &generator))
-    }
-
     // MARK: - 上次玩的
 
     func testLastPlayedTextForBankFixtureAndNone() {
@@ -124,7 +104,6 @@ final class HomeProgressTests: XCTestCase {
         XCTAssertEqual(ProgressCopy.progress(done: 7, total: 30), "已经做完 7 道，一共 30 道")
         XCTAssertEqual(ProgressCopy.progressVoiceOver(done: 7, total: 30), "这一档做完了 7 道，一共 30 道")
         XCTAssertEqual(ProgressCopy.cumulative(12), "一共做完了 12 道题，真棒！")
-        XCTAssertEqual(ProgressCopy.random, "随机来一题")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false), "第 12 题，新题")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: true), "第 12 题，已经做完")
         XCTAssertEqual(ProgressCopy.tileVoiceOver(number: 12, isCompleted: false, isInProgress: true), "第 12 题，玩到一半")
