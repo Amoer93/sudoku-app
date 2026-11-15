@@ -50,9 +50,9 @@ final class LibraryViewModel {
         !bank.entries(difficulty: difficulty, source: nil, sort: .sourceThenDifficulty).isEmpty
     }
 
-    /// 某难度的内置题（首页格子用）。
-    func builtinEntries(difficulty: Difficulty) -> [PuzzleBankEntry] {
-        bank.builtinEntries(difficulty: difficulty)
+    /// 某尺寸、某难度的内置题（首页格子用）；不传尺寸就是 9×9。
+    func builtinEntries(difficulty: Difficulty, size: Int = 9) -> [PuzzleBankEntry] {
+        bank.builtinEntries(difficulty: difficulty, size: size)
     }
 
     /// 清掉所有筛选条件。
@@ -70,6 +70,14 @@ final class LibraryViewModel {
     /// 测试用：传入固定随机数，结果可复现。
     func newGamePuzzle<G: RandomNumberGenerator>(difficulty: Difficulty, using generator: inout G) -> SamplePuzzle? {
         let entry = bank.randomEntry(difficulty: difficulty, source: nil, using: &generator)
+        return entry.map { puzzle(for: $0) }
+    }
+
+    /// 只在某个尺寸的题里抽，4×4 不会抽到 9×9。
+    func newGamePuzzle<G: RandomNumberGenerator>(
+        size: Int, difficulty: Difficulty, using generator: inout G
+    ) -> SamplePuzzle? {
+        let entry = bank.randomEntry(size: size, difficulty: difficulty, source: nil, using: &generator)
         return entry.map { puzzle(for: $0) }
     }
 
@@ -115,7 +123,7 @@ final class LibraryViewModel {
 
     /// 纯计算，不碰界面状态，所以能放在后台线程跑。求不出解就用题面当答案。
     nonisolated static func makePuzzle(from entry: PuzzleBankEntry) -> SamplePuzzle {
-        let rules = Rules.nineByNine
+        let rules = BoardPreset.forSize(entry.size).rules // 小棋盘题不能当成 9×9
         let givens = (try? Grid(size: rules.size, cells: entry.givens)) ?? Grid(rules: rules)
         let solution = EngineBoardAdapter().solve(givens, rules: rules) ?? givens
         return SamplePuzzle(rules: rules, givens: givens, solution: solution)

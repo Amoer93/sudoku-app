@@ -1,9 +1,13 @@
 import SudokuEngine
 import SwiftUI
 
-/// 尺寸入口。选中后进入对应尺寸的内置题目。
+/// 首页：先选棋盘尺寸和难度，再点一道内置题开始。
 struct SizePickerView: View {
+    // 题库页用的题库：只有 9×9 内置题和导入题
     @State private var library = LibraryViewModel(bank: PuzzleBankStore().load())
+    // 首页用的题库：再加上 4×4 / 5×5 的内置题
+    @State private var homeBank = PuzzleBankStore().load().mergingSmallBuiltin()
+    @State private var preset: BoardPreset = .nine
     @State private var difficulty: Difficulty = .easy
     // 点击时选一次题，避免视图刷新时反复抽题、求解
     @State private var route: PlayRoute?
@@ -16,7 +20,7 @@ struct SizePickerView: View {
     @Environment(PuzzleProgressModel.self) private var progressModel: PuzzleProgressModel?
 
     private var progress: HomeProgress {
-        HomeProgress(entries: library.builtinEntries(difficulty: difficulty),
+        HomeProgress(entries: homeBank.builtinEntries(difficulty: difficulty, size: preset.size),
                      records: progressModel?.records ?? PuzzleProgressRecords(),
                      inProgressIDs: progressModel?.inProgressIDs ?? [],
                      restartableIDs: progressModel?.restartableIDs ?? [])
@@ -28,18 +32,19 @@ struct SizePickerView: View {
 
     /// 刷新存档标记，并顺手清掉题已不存在的存档（只在回到首页时做，不在重绘里做）。
     private func refreshSessions() {
-        let knownIDs = allowsOrphanCleanup ? HomeProgress.knownSessionIDs(bank: library.bank) : nil
+        let knownIDs = allowsOrphanCleanup ? HomeProgress.knownSessionIDs(bank: homeBank) : nil
         progressModel?.refreshSessionIndex(keeping: knownIDs)
     }
 
-    /// 当前难度上次玩的那一条；别的难度各记各的。
+    /// 当前尺寸、当前难度上次玩的那一条；别的尺寸和难度各记各的。
     private var gridLastPlayed: LastPlayedRecord? {
-        progressModel?.records.lastPlayedByDifficulty[difficulty]
+        progressModel?.records.lastPlayed(size: preset.size, difficulty: difficulty)
     }
 
-    /// 4×4 / 5×5 固定题上次玩的那一条。
-    private var fixtureLastPlayed: LastPlayedRecord? {
-        progressModel?.records.lastPlayedFixture
+    /// 切换棋盘尺寸；新尺寸没有当前难度时回到它有的档位。
+    private func select(_ newPreset: BoardPreset) {
+        preset = newPreset
+        difficulty = newPreset.clamping(difficulty)
     }
 
     /// 这一条能接着玩时才有值（有存档、不是全解、题还在）。
@@ -47,7 +52,7 @@ struct SizePickerView: View {
         HomeProgress.resumeTarget(
             lastPlayed: record,
             inProgressIDs: progressModel?.inProgressIDs ?? [],
-            bank: library.bank
+            bank: homeBank
         )
     }
 
@@ -61,14 +66,14 @@ struct SizePickerView: View {
                     .listRowSeparator(.hidden)
                 Section {
                     HStack(spacing: 8) {
-                        ForEach(BoardPreset.allCases) { preset in boardChip(preset) }
+                        ForEach(BoardPreset.allCases) { chip in boardChip(chip) }
                     }
                 } header: {
                     Label(ProgressCopy.smallBoards, systemImage: "square.grid.3x3")
                 }
                 Section {
                     Picker(LibraryCopy.difficultyTitle, selection: $difficulty) {
-                        ForEach(Difficulty.allCases, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
+                        ForEach(preset.difficulties, id: \.self) { level in Text(LibraryCopy.title(level)).tag(level) }
                     }
                     .pickerStyle(.segmented)
                     .listRowSeparator(.hidden) // 难度、进度、格子是一块，中间不要细线
@@ -118,7 +123,7 @@ struct SizePickerView: View {
         return VStack(alignment: .leading, spacing: 12) {
             ProgressCardView(progress: current)
             if current.total > 0 {
-                PuzzleTileGrid(tiles: tiles, onSelect: { tile in open(.nine, entry: tile.entry) },
+                PuzzleTileGrid(tiles: tiles, onSelect: { tile in open(tile.entry) },
                                onRestart: { tile in restartID = tile.id },
                                resumeLabel: resumeLabel(for: gridLastPlayed), onResume: onResume)
             }
@@ -129,113 +134,62 @@ struct SizePickerView: View {
 
     /// 继续控件的朗读，例如「继续上一次，困难第 4 题」；说不出是哪道题时只读「继续上一次」。
     private func resumeLabel(for record: LastPlayedRecord?) -> String {
-        let text = HomeProgress.lastPlayedText(record, bank: library.bank)
+        let text = HomeProgress.lastPlayedText(record, bank: homeBank)
         if text == ProgressCopy.lastPlayedNone {
             return ProgressCopy.resume
         }
         return ProgressCopy.resumeVoiceOver(from: text)
     }
 
-    /// 棋盘挑选里的一格。4×4 / 5×5 一点就开那道固定题；9×9 只表示「下面是九宫的题」，不另开题。
-    /// 小棋盘的开题按钮和继续控件是兄弟，不互相嵌套；两个按钮各挂同一个长按菜单。
-    @ViewBuilder
-    private func boardChip(_ preset: BoardPreset) -> some View {
-        if preset == .nine {
-            // 小棋盘一点就进棋盘，不会停在选中态，所以首页选中的一直是 9×9；它只是展示，不是按钮
-            chipLabel(preset, isSelected: true)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(preset.title)
-                .accessibilityAddTraits(.isSelected)
-        } else {
-            let sessionID = fixtureSessionID(preset)
-            let restart = fixtureRestartAction(sessionID)
-            ZStack(alignment: .topLeading) {
-                Button { open(preset) } label: { chipLabel(preset, isSelected: false) }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(preset.title + ProgressCopy.stateSuffix(
-                        isCompleted: progress.isCompleted(sessionID),
-                        isInProgress: progress.inProgressIDs.contains(sessionID)
-                    ))
-                    .restartContextMenu(action: restart)
-                if fixtureLastPlayed?.id == sessionID, let target = resumeTarget(for: fixtureLastPlayed) {
-                    ResumeButton(voiceOverLabel: resumeLabel(for: fixtureLastPlayed), symbol: "play.fill",
-                                 symbolFont: .caption2, alignment: .topLeading) { resume(target) }
-                        .restartContextMenu(action: restart)
-                }
-            }
-        }
+    /// 棋盘挑选里的一格：只负责切换尺寸。玩到一半、对勾和 ▶ 都在下面的题目格子上。
+    private func boardChip(_ chip: BoardPreset) -> some View {
+        let isSelected = chip == preset
+        return Button { select(chip) } label: { chipLabel(chip, isSelected: isSelected) }
+            .buttonStyle(.plain)
+            .accessibilityLabel(chip.accessibilityTitle)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    /// 固定题的「重新开始」动作；没有存档就没有。
-    private func fixtureRestartAction(_ sessionID: PuzzleFingerprint) -> (() -> Void)? {
-        guard progress.restartableIDs.contains(sessionID) else {
-            return nil
-        }
-        return { restartID = sessionID }
-    }
-
-    /// 点击时才选题（只选一次）；9×9 的求解在后台做，完成后再跳转。
-    private func open(_ preset: BoardPreset, entry: PuzzleBankEntry? = nil) {
+    /// 点击时才求解（只做一次），放在后台做，完成后再跳转。棋盘尺寸跟着题走。
+    private func open(_ entry: PuzzleBankEntry) {
         guard !isOpening else {
             return
         }
         isOpening = true
         Task {
-            var puzzle: SamplePuzzle?
-            if let entry {
-                puzzle = await LibraryViewModel.resolvePuzzle(for: entry)
-            }
-            if let newRoute = PlayRoute.making(preset: preset, entry: entry, puzzle: puzzle) {
+            let puzzle = await LibraryViewModel.resolvePuzzle(for: entry)
+            let boardPreset = BoardPreset.forSize(entry.size)
+            if let newRoute = PlayRoute.making(preset: boardPreset, entry: entry, puzzle: puzzle) {
                 route = newRoute
             }
             isOpening = false
         }
     }
 
-    /// 回到上次玩的题；进棋盘时由存档恢复。题库题就在当前难度的格子上，不用再切难度。
+    /// 回到上次玩的题；进棋盘时由存档恢复。首页只接着玩题库题，不再打开旧的固定题。
     private func resume(_ target: ResumeTarget) {
-        switch target {
-        case .fixture(let preset):
-            open(preset)
-        case .bank(let entry, _):
-            open(.nine, entry: entry)
+        if case .bank(let entry, _) = target {
+            open(entry)
         }
     }
 
-    /// 重新读文件，让刚导入的题能被看到。
+    /// 重新读文件，让刚导入的题能被看到。小棋盘题只并进首页这一份，题库页不要。
     private func reloadLibrary() {
         let result = PuzzleBankStore().loadResult()
         allowsOrphanCleanup = result.allowsOrphanCleanup
         library.reload(result.bank)
+        homeBank = result.bank.mergingSmallBuiltin()
     }
 
-    private func fixtureSessionID(_ preset: BoardPreset) -> PuzzleFingerprint {
-        preset == .four ? HomeProgress.fixture4 : HomeProgress.fixture5
-    }
-
-    /// 一格的样子：只有标题；选中（9×9）用松绿色底，小棋盘带「玩到一半」和对勾。
-    private func chipLabel(_ preset: BoardPreset, isSelected: Bool) -> some View {
-        let fixtureID = fixtureSessionID(preset)
-        let isFixture = preset != .nine
-        return ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-                Text(preset.title).font(.headline)
-                if isFixture, progress.inProgressIDs.contains(fixtureID) {
-                    Text(ProgressCopy.inProgress).font(.caption2).lineLimit(1).minimumScaleFactor(0.6)
-                }
-            }
+    /// 一格的样子：只有标题；选中的用松绿色底。
+    private func chipLabel(_ chip: BoardPreset, isSelected: Bool) -> some View {
+        Text(chip.title)
+            .font(.headline)
             .foregroundStyle(isSelected ? AppTheme.onButtonText : AppTheme.primaryText)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(isSelected ? AppTheme.pineGreen : AppTheme.raisedSurface)
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            if isFixture, progress.isCompleted(fixtureID) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.pineGreen)
-                    .padding(2)
-            }
-        }
-        .contentShape(Rectangle()) // 点文字旁边的空白也算点到这一格
+            .contentShape(Rectangle()) // 点文字旁边的空白也算点到这一格
     }
 }
 
